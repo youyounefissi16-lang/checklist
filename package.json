@@ -1,0 +1,20 @@
+{
+  "name": "checklist-audit-system",
+  "version": "8.0.0",
+  "description": "Offline-first checklist audit system (vanilla JS, no build step).",
+  "private": true,
+  "scripts": {
+    "check": "node --check app.js && node --check i18n.js && node --check storage.js",
+    "check:server": "python -m py_compile server.py"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/share": "^8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0"
+  }
+}
