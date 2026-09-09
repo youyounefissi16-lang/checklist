@@ -2,16 +2,16 @@
 // sw.js  —  Service Worker for PWA offline support
 // Cache-version: bump to force cache update on new deployments
 // ---------------------------------------------------------------------------
-var CACHE_VERSION = "v19";
+var CACHE_VERSION = "v20";
 var CACHE_NAME = "checklist-audit-" + CACHE_VERSION;
 var CORE_ASSETS = [
   "/",
   "/index.html",
-  "/styles.css?v=19",
-  "/i18n.js?v=19",
-  "/storage.js?v=19",
-  "/jspdf.umd.min.js?v=19",
-  "/app.js?v=19",
+  "/styles.css?v=20",
+  "/i18n.js?v=20",
+  "/storage.js?v=20",
+  "/jspdf.umd.min.js?v=20",
+  "/app.js?v=20",
   "/manifest.json",
   "/icons/icon-192.webp",
   "/icons/icon-512.webp"

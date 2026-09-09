@@ -264,7 +264,8 @@ function addItem(zoneId) {
     checkedBy: null,
     checkedAt: null,
     note: "",
-    noteColor: "red"
+    noteColor: "red",
+    tags: []
   });
   persist();
   render();
@@ -296,6 +297,48 @@ function saveItemText(zoneId, itemId) {
   persist();
   render();
   showToast(t("saved"));
+}
+
+var TAG_COLORS = ["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA","#5C6BC0","#795548"];
+
+function addTagToItem(zoneId, itemId) {
+  var nameInput = document.getElementById("tag-name-" + itemId);
+  var name = nameInput.value.trim();
+  if (!name) return;
+  var colorBtn = document.querySelector(".tag-color-picker[data-item='" + itemId + "'] .tag-color-btn.active");
+  var color = colorBtn ? colorBtn.getAttribute("data-color") : TAG_COLORS[0];
+  var zone = zones.find(function (z) { return z.zoneId === zoneId; });
+  var item = zone && zone.items.find(function (i) { return i.id === itemId; });
+  if (!item) return;
+  if (!item.tags) item.tags = [];
+  item.tags.push({ name: name, color: color });
+  persist();
+  render();
+}
+
+function removeTagFromItem(zoneId, itemId, tagIndex) {
+  var zone = zones.find(function (z) { return z.zoneId === zoneId; });
+  var item = zone && zone.items.find(function (i) { return i.id === itemId; });
+  if (!item || !item.tags) return;
+  item.tags.splice(tagIndex, 1);
+  persist();
+  render();
+}
+
+function selectTagColor(itemId, color) {
+  var picker = document.querySelector(".tag-color-picker[data-item='" + itemId + "']");
+  if (!picker) return;
+  var btns = picker.querySelectorAll(".tag-color-btn");
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove("active");
+  var active = picker.querySelector(".tag-color-btn[data-color='" + color + "']");
+  if (active) active.classList.add("active");
+}
+
+function tagBadgesHtml(tags) {
+  if (!tags || !tags.length) return "";
+  return '<div class="tag-badges">' + tags.map(function (tag) {
+    return '<span class="tag-badge" style="background:' + escapeHtml(tag.color) + '">' + escapeHtml(tag.name) + '</span>';
+  }).join("") + '</div>';
 }
 
 // ---- INSPECTION actions ----
@@ -518,7 +561,8 @@ function finishInspection() {
         checkedBy: i.checkedBy,
         checkedAt: i.checkedAt,
         note: i.note,
-        noteColor: i.noteColor || "red"
+        noteColor: i.noteColor || "red",
+        tags: i.tags || []
       });
     });
   });
@@ -614,6 +658,7 @@ function reportRowsHtml(logs) {
         "<div class=\"report-info\">" +
           '<div class="report-zone">' + t("zone") + " " + escapeHtml(log.zoneName) + "</div>" +
           '<div class="report-text">' + escapeHtml(log.text) + "</div>" +
+          tagBadgesHtml(log.tags) +
           '<div class="report-meta">' + meta + "</div>" +
           note +
         "</div>" +
@@ -933,6 +978,19 @@ function exportReportPdf(logs, meta) {
     doc.setFontSize(10);
     doc.setTextColor(30);
     y = wrap(log.text, ML + 6, y, CW - 55, 10, true);
+
+    if (log.tags && log.tags.length) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      var tagStr = log.tags.map(function (tg) { return tg.name; }).join(" | ");
+      var tc = log.tags[0];
+      var tcr = parseInt(tc.color.slice(1, 3), 16) || 100;
+      var tcg = parseInt(tc.color.slice(3, 5), 16) || 100;
+      var tcb = parseInt(tc.color.slice(5, 7), 16) || 100;
+      doc.setTextColor(tcr, tcg, tcb);
+      y = wrap(tagStr, ML + 6, y, CW - 55, 6);
+      doc.setTextColor(30);
+    }
 
     var sc, sr, sg, sb;
     if (log.status === "pass") { sc = GREEN_TXT; sr = SOFT_GREEN[0]; sg = SOFT_GREEN[1]; sb = SOFT_GREEN[2]; }
@@ -1554,6 +1612,7 @@ function render() {
               return (
                 '<li class="item-row" id="row-' + zone.zoneId + "-" + item.id + '">' +
                   '<div class="item-text">' + escapeHtml(item.text) + "</div>" +
+                  tagBadgesHtml(item.tags) +
                   '<div class="item-actions">' +
                     "<button class=\"status-btn\" data-st=\"pass\" style=\"" + passStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','pass')\">" + ic("check") + t("pass") + "</button>" +
                     "<button class=\"status-btn\" data-st=\"no_pass\" style=\"" + noPassStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','no_pass')\">" + ic("x") + t("noPass") + "</button>" +
@@ -1686,6 +1745,21 @@ function render() {
                   (item.note && item.note.trim()
                     ? '<div class="note-display"><span class="note-text">' + escapeHtml(item.note) + "</span></div>"
                     : "") +
+                  (item.tags && item.tags.length
+                    ? '<div class="tag-badges tag-badges-settings">' + item.tags.map(function (tag, ti) {
+                        return '<span class="tag-badge" style="background:' + escapeHtml(tag.color) + '">' + escapeHtml(tag.name) +
+                          '<button class="tag-badge-x" onclick="removeTagFromItem(\'' + zone.zoneId + "','" + item.id + "'," + ti + ")\">&times;</button></span>";
+                      }).join("") + "</div>"
+                    : "") +
+                  '<div class="tag-add-row">' +
+                    '<input id="tag-name-' + item.id + '" class="text-input tag-name-input" type="text" placeholder="' + t("tagName") + '">' +
+                    '<div class="tag-color-picker" data-item="' + item.id + '">' +
+                      TAG_COLORS.map(function (c) {
+                        return '<button class="tag-color-btn' + (c === TAG_COLORS[0] ? " active" : "") + '" data-color="' + c + '" style="background:' + c + '" onclick="selectTagColor(\'' + item.id + "','" + c + "')\"></button>";
+                      }).join("") +
+                    '</div>' +
+                    '<button class="btn btn-light btn-sm" onclick="addTagToItem(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("plus") + t("addTag") + "</button>" +
+                  "</div>" +
                 "</li>"
               );
               }).join("") + "</ul>";

@@ -124,7 +124,9 @@ const I18N = {
     analyticsWorstMonth: "Worst",
     analyticsTotalSessions: "Sessions",
     analyticsThreshold: "Threshold",
-    analyticsNoZoneData: "No data for this zone."
+    analyticsNoZoneData: "No data for this zone.",
+    addTag: "Add",
+    tagName: "Tag name"
   },
   fr: {
     appTitle: "Système d'Audit par Checklist",
@@ -246,7 +248,9 @@ const I18N = {
     analyticsWorstMonth: "Moins bon",
     analyticsTotalSessions: "Sessions",
     analyticsThreshold: "Seuil",
-    analyticsNoZoneData: "Aucune donnée pour cette zone."
+    analyticsNoZoneData: "Aucune donnée pour cette zone.",
+    addTag: "Ajouter",
+    tagName: "Nom de l'étiquette"
   }
 };
 
