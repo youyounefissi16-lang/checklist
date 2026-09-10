@@ -2024,20 +2024,20 @@ function reviewHtml() {
 
   return '<div class="review-card">' +
     '<h3>' + t("reviewTitle") + '</h3>' +
-    '<div class="grid grid-cols-3 gap-2 mb-4">' +
-      '<div class="p-3 rounded-xl bg-rose-50 text-center"><div class="text-xl font-black text-rose-700">' + fail + '</div><div class="text-xs font-bold text-rose-600">' + t("reviewNoPass") + '</div></div>' +
-      '<div class="p-3 rounded-xl bg-emerald-50 text-center"><div class="text-xl font-black text-emerald-700">' + pass + '</div><div class="text-xs font-bold text-emerald-600">' + t("reviewPass") + '</div></div>' +
-      '<div class="p-3 rounded-xl bg-slate-100 text-center"><div class="text-xl font-black text-slate-600">' + unchecked + '</div><div class="text-xs font-bold text-slate-500">' + t("reviewUnchecked") + '</div></div>' +
+    '<div class="review-stats">' +
+      '<div class="review-stat pass"><div class="rs-value">' + pass + '</div><div class="rs-label">' + t("dashPassed") + '</div></div>' +
+      '<div class="review-stat fail"><div class="rs-value">' + fail + '</div><div class="rs-label">' + t("dashFailed") + '</div></div>' +
+      '<div class="review-stat unchecked"><div class="rs-value">' + unchecked + '</div><div class="rs-label">' + t("reviewUnchecked") + '</div></div>' +
     '</div>' +
-    '<div class="flex items-center gap-2 mb-4 p-3 rounded-xl bg-white border border-slate-200">' +
-      '<span class="text-xs font-bold text-slate-500">' + t("reviewAvg") + '</span>' +
-      '<div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:' + rate + '%;background:' + rateColor + '"></div></div>' +
-      '<span class="text-sm font-black" style="color:' + rateColor + '">' + rate + '%</span>' +
+    '<div class="review-rate">' +
+      '<span style="font-size:13px;font-weight:600;color:#44556B">' + t("dashPassRate") + '</span>' +
+      '<div class="review-rate-bar"><div class="review-rate-fill" style="width:' + rate + '%;background:' + rateColor + '"></div></div>' +
+      '<span class="review-rate-text" style="color:' + rateColor + '">' + rate + '%</span>' +
     '</div>' +
-    '<div class="text-xs text-slate-500 mb-4"><span class="font-bold">' + t("reviewZones") + ':</span> ' + zonesList + '</div>' +
-    '<div class="flex gap-2">' +
-      '<button onclick="finishInspection()" class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-xs shadow-md transition-all btn-press">' + t("reviewFinish") + '</button>' +
-      '<button onclick="navigate(\'inspection\')" class="px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-black rounded-xl text-xs shadow-md transition-all">' + t("reviewBack") + '</button>' +
+    '<div class="review-meta"><strong>' + t("reviewZones") + ':</strong> ' + zonesList + '</div>' +
+    '<div class="review-actions">' +
+      '<button class="btn btn-primary" onclick="finishInspection()">' + ic("flag") + t("finishInspection") + '</button>' +
+      '<button class="btn btn-light" onclick="navigate(\'inspection\')">' + ic("list") + t("reviewBack") + '</button>' +
     '</div>' +
   '</div>';
 }
@@ -2116,7 +2116,7 @@ function ncListViewHtml() {
     if (a.status !== "open" && b.status === "open") return 1;
     return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
-  var h = '<input type="text" class="text-input mb-3" placeholder="Search NCs..." id="nc-search" oninput="filterNCs()" style="width:100%">';
+  var h = '<input type="text" class="text-input" placeholder="Search NCs..." id="nc-search" oninput="filterNCs()" style="width:100%;margin-bottom:12px">';
   h += '<div id="nc-list-container">';
   sorted.forEach(function (nc) {
     h += ncCardHtml(nc);
@@ -2165,7 +2165,7 @@ function ncDetailViewHtml() {
   var nc = ncs.find(function (n) { return n.id === viewingNcId; });
   if (!nc) return '<p class="muted">' + t("ncNotFound") + '</p>';
   var h = '<div class="nc-detail">' +
-    '<button class="btn btn-light btn-sm mb-3" onclick="historySubView=\'ncs\';navigate(\'historique\')">&larr; ' + t("ncTitle") + '</button>' +
+    '<button class="btn btn-light btn-sm" style="margin-bottom:12px" onclick="historySubView=\'ncs\';navigate(\'historique\')">&larr; ' + t("ncTitle") + '</button>' +
     '<div class="nc-detail-header">' +
       '<div class="ncd-title">' + escapeHtml(nc.id) + '</div>' +
       '<div class="ncd-meta">' + escapeHtml(nc.zoneName) + ' &middot; ' + escapeHtml(nc.createdAt) + '</div>' +
@@ -2299,7 +2299,7 @@ function tagDonutsHtml() {
   var tagStats = computeTagStats();
   var keys = Object.keys(tagStats);
   if (!keys.length) return '<p class="muted">' + t("donutNoTags") + '</p>';
-  var h = '<h4 class="mt-4 mb-2 font-bold text-sm text-slate-600">' + t("donutByTag") + '</h4><div class="donut-grid">';
+  var h = '<h3 style="margin:16px 0 12px;font-size:14px;font-weight:700;color:#44556B">' + t("donutByTag") + '</h3><div class="donut-grid">';
   keys.forEach(function (k) {
     var ts = tagStats[k];
     h += '<div class="donut-card">' +
