@@ -109,7 +109,10 @@ const ICONS = {
   flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V4"/><path d="M6 5h11l-2 3 2 3H6"/></svg>',
   folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
-  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
+  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>'
 };
 
 function ic(name) {
@@ -1893,30 +1896,76 @@ function lastSessionStats() {
 }
 
 function dashboardHtml() {
-  var stats = lastSessionStats();
-  var zCount = zones.length;
-  var cCount = totalItemsCount();
-  var h = '<div class="dashboard-cards">' +
-    '<div class="stat-card"><div class="stat-icon">' + ic("list") + '</div><div class="stat-value">' + zCount + '</div><div class="stat-label">' + t("dashZones") + '</div></div>' +
-    '<div class="stat-card"><div class="stat-icon">' + ic("inspect") + '</div><div class="stat-value">' + cCount + '</div><div class="stat-label">' + t("dashCriteria") + '</div></div>' +
-    '<div class="stat-card"><div class="stat-icon" style="color:#2E7D32">&#10003;</div><div class="stat-value" style="color:#2E7D32">' + (stats ? stats.pass : "—") + '</div><div class="stat-label">' + t("dashPassed") + '</div></div>' +
-    '<div class="stat-card"><div class="stat-icon" style="color:#C03025">&#10007;</div><div class="stat-value" style="color:#C03025">' + (stats ? stats.fail : "—") + '</div><div class="stat-label">' + t("dashFailed") + '</div></div>' +
+  var visitCount = sessions.length;
+  var ncOpen = ncs.filter(function (nc) { return nc.status === "open"; }).length;
+  var ncInProgress = ncs.filter(function (nc) { return nc.status === "in_progress"; }).length;
+  var today = new Date().toISOString().slice(0, 10);
+  var ncOverdue = ncs.filter(function (nc) { return nc.status !== "closed" && nc.deadline && nc.deadline < today; }).length;
+
+  var h = '<div class="dash-greeting">' +
+    '<div class="dash-greeting-title">' + t("dashGreeting") + '</div>' +
+    '<div class="dash-greeting-sub">' + t("dashSubtitle") + '</div>' +
   '</div>';
-  if (stats) {
-    var rateColor = stats.rate >= passThreshold ? "#2E7D32" : "#C03025";
-    h += '<div class="last-inspection-bar">' +
-      '<div class="li-header">' +
-        '<span class="li-title">' + t("dashLastInspection") + '</span>' +
-        '<span class="li-meta">' + escapeHtml(stats.session.inspector || "") + ' &middot; ' + escapeHtml(formatDateTime(stats.session.finishedAt)) + '</span>' +
+
+  h += '<div class="dash-stat-grid">' +
+    '<div class="dash-stat-card green">' +
+      '<div class="dash-stat-icon">' + ic("check") + '</div>' +
+      '<div class="dash-stat-content">' +
+        '<div class="dash-stat-label">' + t("dashVisitsMonth") + '</div>' +
+        '<div class="dash-stat-value">' + visitCount + '</div>' +
       '</div>' +
-      '<div class="li-rate">' +
-        '<div class="li-rate-bar"><div class="li-rate-fill ' + (stats.rate >= passThreshold ? "good" : "bad") + '" style="width:' + stats.rate + '%"></div></div>' +
-        '<span class="li-rate-text" style="color:' + rateColor + '">' + stats.rate + '%</span>' +
+    '</div>' +
+    '<div class="dash-stat-card orange">' +
+      '<div class="dash-stat-icon">' + ic("alert") + '</div>' +
+      '<div class="dash-stat-content">' +
+        '<div class="dash-stat-label">' + t("dashNCsOpen") + '</div>' +
+        '<div class="dash-stat-value">' + ncOpen + '</div>' +
+        '<div class="dash-stat-sub">' + t("dashNCsLabel") + '</div>' +
       '</div>' +
+    '</div>' +
+    '<div class="dash-stat-card blue">' +
+      '<div class="dash-stat-icon">' + ic("clock") + '</div>' +
+      '<div class="dash-stat-content">' +
+        '<div class="dash-stat-label">' + t("dashInProgress") + '</div>' +
+        '<div class="dash-stat-value">' + ncInProgress + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="dash-stat-card red">' +
+      '<div class="dash-stat-icon">' + ic("alert") + '</div>' +
+      '<div class="dash-stat-content">' +
+        '<div class="dash-stat-label">' + t("dashOverdue") + '</div>' +
+        '<div class="dash-stat-value">' + ncOverdue + '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  h += '<div class="dash-section">' +
+    '<div class="dash-section-head">' +
+      '<span class="dash-section-title">' + t("dashRecentVisites") + '</span>' +
+      '<button class="dash-view-all" onclick="navigate(\'historique\')">' + t("dashViewAll") + ' &rsaquo;</button>' +
     '</div>';
+
+  if (!sessions.length) {
+    h += '<div class="dash-empty">' + t("dashNoVisits") + '</div>';
   } else {
-    h += '<div class="last-inspection-bar"><div class="li-meta">' + t("dashNoData") + '</div></div>';
+    var recent = sessions.slice().sort(function (a, b) {
+      return (b.finishedAt || "").localeCompare(a.finishedAt || "");
+    }).slice(0, 5);
+    h += '<div class="dash-visit-list">';
+    recent.forEach(function (s) {
+      var dateStr = s.finishedAt ? formatDateTime(s.finishedAt) : "";
+      h += '<div class="dash-visit-row">' +
+        '<div class="dash-visit-check">' + ic("check") + '</div>' +
+        '<div class="dash-visit-info">' +
+          '<div class="dash-visit-name">' + escapeHtml(s.zoneName || s.inspector || t("inspect")) + '</div>' +
+          '<div class="dash-visit-date">' + escapeHtml(dateStr) + '</div>' +
+        '</div>' +
+        '<span class="dash-visit-pill">' + t("dashTerminated") + '</span>' +
+      '</div>';
+    });
+    h += '</div>';
   }
+  h += '</div>';
   return h;
 }
 
