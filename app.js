@@ -23,6 +23,20 @@ let folderInfo = { supported: false, hasHandle: false, connected: false, name: "
 // Inspector-defined threshold (%): a zone passes the analysis when its score >= this value
 let passThreshold = 80;
 
+// Non-conformities (auto-created from failed inspection items)
+let ncs = [];
+let ncSettings = { overdueDays: 7, recurrentThreshold: 3, defaultCorrectiveAction: "", autoCloseNCs: false };
+
+// Sub-view toggles
+let historySubView = "sessions"; // "sessions" | "ncs"
+let analyticsSubView = "inspections"; // "inspections" | "ncs"
+
+// NC detail view
+let viewingNcId = null;
+
+// Photo viewer
+let viewingPhotoData = null;
+
 // Load persisted data from the database (async). Render only after load so
 // the UI can't mutate state before it's been read.
 
@@ -31,7 +45,7 @@ async function refreshFolderInfo() {
 }
 
 function persist() {
-  Storage.saveState({ zones: zones, sessions: sessions, selectedZoneIds: selectedZoneIds, passThreshold: passThreshold });
+  Storage.saveState({ zones: zones, sessions: sessions, selectedZoneIds: selectedZoneIds, passThreshold: passThreshold, ncs: ncs, ncSettings: ncSettings });
 }
 
 const DB_FILE = "audit-data.json";
@@ -473,6 +487,8 @@ function importFile(input) {
         zones = data.zones || [];
         sessions = Array.isArray(data.sessions) ? data.sessions : [];
         selectedZoneIds = Array.isArray(data.selectedZoneIds) ? data.selectedZoneIds : [];
+        ncs = Array.isArray(data.ncs) ? data.ncs : [];
+        ncSettings = data.ncSettings && typeof data.ncSettings === "object" ? data.ncSettings : {};
         editingZoneId = null;
         editingItemId = null;
         persist();
@@ -587,6 +603,7 @@ function finishInspection() {
   selectedZoneIds = [];
   inspectionPicking = false;
   persist();
+  createNcsFromSession(sessions[sessions.length - 1]);
   showToast(t("sessionSaved"));
   navigate('historique');
 }
@@ -1529,6 +1546,7 @@ function render() {
   if (currentView === "home") {
     content =
       '<div class="card home-card">' +
+        dashboardHtml() +
         '<h2 class="home-title">' + t("appTitle") + "</h2>" +
         '<p class="home-user">' + t("loggedInAs") + " <strong id=\"user-display\">" + escapeHtml(currentUser) + "</strong></p>" +
         '<div class="home-buttons">' +
@@ -1619,6 +1637,8 @@ function render() {
                     "<button class=\"status-btn\" data-st=\"unchecked\" style=\"" + ncStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','unchecked')\">" + ic("minus") + t("notChecked") + "</button>" +
                   "</div>" +
                   noteBlock +
+                  photosHtml(zone.zoneId, item.id, item.photos) +
+                  '<button class="photo-add-btn" onclick="capturePhoto(\'' + zone.zoneId + '\',\'' + item.id + "')\">" + ic("note") + " " + t("addPhoto") + "</button>" +
                   meta +
                 "</li>"
               );
@@ -1637,7 +1657,7 @@ function render() {
         '<div class="finish-actions">' +
           '<button class="btn btn-light" onclick="changeZones()">' + ic("list") + t("changeZones") + "</button>" +
           '<button class="btn btn-light" onclick="saveProgress()">' + ic("save") + t("saveProgress") + "</button>" +
-          '<button class="btn btn-primary" onclick="finishInspection()">' + ic("flag") + t("finishInspection") + "</button>" +
+          '<button class="btn btn-primary" onclick="showReview()">' + ic("flag") + t("finishInspection") + "</button>" +
           '<button class="btn btn-info" onclick="exportInspectionPDF()">' + ic("download") + t("exportPDF") + "</button>" +
         "</div>";
       content =
@@ -1652,8 +1672,14 @@ function render() {
     }
 
   } else if (currentView === "historique") {
+    var hToggle = '<div class="tab-toggle">' +
+      '<button class="tab-toggle-btn' + (historySubView === "sessions" ? " active" : "") + '" onclick="historySubView=\'sessions\';render()">' + t("tabSessions") + '</button>' +
+      '<button class="tab-toggle-btn' + (historySubView === "ncs" ? " active" : "") + '" onclick="historySubView=\'ncs\';render()">' + t("tabNCs") + ' (' + ncs.length + ')</button>' +
+    '</div>';
     let body;
-    if (!sessions.length) {
+    if (historySubView === "ncs") {
+      body = ncListViewHtml();
+    } else if (!sessions.length) {
       body = emptyState(t("noSessions"), null, null, "history");
     } else {
       const sorted = sessions.slice().sort(function (a, b) {
@@ -1689,19 +1715,26 @@ function render() {
       '<div class="card">' +
         '<div class="view-head">' +
           "<h2 class=\"view-title\">" + t("historyTitle") + "</h2>" +
-          (sessions.length ? '<button class="btn btn-danger btn-sm" onclick="clearHistory()">' + ic("trash") + t("clearHistory") + "</button>" : "") +
+          (historySubView === "sessions" && sessions.length ? '<button class="btn btn-danger btn-sm" onclick="clearHistory()">' + ic("trash") + t("clearHistory") + "</button>" : "") +
         "</div>" +
+        hToggle +
         body +
       "</div>";
 
   } else if (currentView === "analytics") {
+    var aToggle = '<div class="tab-toggle">' +
+      '<button class="tab-toggle-btn' + (analyticsSubView === "inspections" ? " active" : "") + '" onclick="analyticsSubView=\'inspections\';render()">' + t("analyticsInspections") + '</button>' +
+      '<button class="tab-toggle-btn' + (analyticsSubView === "ncs" ? " active" : "") + '" onclick="analyticsSubView=\'ncs\';render()">' + t("analyticsNCs") + '</button>' +
+    '</div>';
+    var aContent = analyticsSubView === "ncs" ? ncAnalyticsHtml() : analyticsViewHtml();
     content =
       '<div class="card">' +
         '<div class="view-head">' +
           "<h2 class=\"view-title\">" + t("analyticsTitle") + "</h2>" +
           (sessions.length ? '<button class="btn btn-primary btn-sm" onclick="exportAnalyticsPdf()">' + ic("download") + t("exportPDF") + "</button>" : "") +
         "</div>" +
-        analyticsViewHtml() +
+        aToggle +
+        aContent +
       "</div>";
 
   } else if (currentView === "settings") {
@@ -1801,6 +1834,8 @@ function render() {
           "</div>" +
         "</div>" +
         zoneCards +
+        ncSettingsHtml() +
+        globalTagManagerHtml() +
         '<div class="data-section">' +
           "<h3 class=\"data-title\">" + t("dataManagement") + "</h3>" +
           '<p class="muted">' + t("dataHelp") + "</p>" +
@@ -1812,9 +1847,591 @@ function render() {
           "</div>" +
         "</div>" +
       "</div>";
+  } else if (currentView === "review") {
+    content =
+      '<div class="card">' +
+        '<div class="view-head">' +
+          "<h2 class=\"view-title\">" + t("reviewTitle") + "</h2>" +
+        "</div>" +
+        reviewHtml() +
+      "</div>";
+
+  } else if (currentView === "ncDetail") {
+    content =
+      '<div class="card">' +
+        '<div class="view-head">' +
+          "<h2 class=\"view-title\">" + t("ncDetail") + "</h2>" +
+        "</div>" +
+        ncDetailViewHtml() +
+      "</div>";
+
   }
 
   app.innerHTML = shell(content);
+}
+
+// ==== TAB 1: DASHBOARD ====
+function totalItemsCount() {
+  var count = 0;
+  zones.forEach(function (z) { count += z.items.length; });
+  return count;
+}
+
+function lastSessionStats() {
+  if (!sessions.length) return null;
+  var sorted = sessions.slice().sort(function (a, b) { return (b.finishedAt || "").localeCompare(a.finishedAt || ""); });
+  var last = sorted[0];
+  var pass = 0, fail = 0, unchecked = 0;
+  (last.items || []).forEach(function (i) {
+    if (i.status === "pass") pass++;
+    else if (i.status === "no_pass") fail++;
+    else unchecked++;
+  });
+  var total = pass + fail + unchecked;
+  var rate = total > 0 ? Math.round((pass / total) * 100) : 0;
+  return { session: last, pass: pass, fail: fail, unchecked: unchecked, total: total, rate: rate };
+}
+
+function dashboardHtml() {
+  var stats = lastSessionStats();
+  var zCount = zones.length;
+  var cCount = totalItemsCount();
+  var h = '<div class="dashboard-cards">' +
+    '<div class="stat-card"><div class="stat-icon">' + ic("list") + '</div><div class="stat-value">' + zCount + '</div><div class="stat-label">' + t("dashZones") + '</div></div>' +
+    '<div class="stat-card"><div class="stat-icon">' + ic("inspect") + '</div><div class="stat-value">' + cCount + '</div><div class="stat-label">' + t("dashCriteria") + '</div></div>' +
+    '<div class="stat-card"><div class="stat-icon" style="color:#2E7D32">&#10003;</div><div class="stat-value" style="color:#2E7D32">' + (stats ? stats.pass : "—") + '</div><div class="stat-label">' + t("dashPassed") + '</div></div>' +
+    '<div class="stat-card"><div class="stat-icon" style="color:#C03025">&#10007;</div><div class="stat-value" style="color:#C03025">' + (stats ? stats.fail : "—") + '</div><div class="stat-label">' + t("dashFailed") + '</div></div>' +
+  '</div>';
+  if (stats) {
+    var rateColor = stats.rate >= passThreshold ? "#2E7D32" : "#C03025";
+    h += '<div class="last-inspection-bar">' +
+      '<div class="li-header">' +
+        '<span class="li-title">' + t("dashLastInspection") + '</span>' +
+        '<span class="li-meta">' + escapeHtml(stats.session.inspector || "") + ' &middot; ' + escapeHtml(formatDateTime(stats.session.finishedAt)) + '</span>' +
+      '</div>' +
+      '<div class="li-rate">' +
+        '<div class="li-rate-bar"><div class="li-rate-fill ' + (stats.rate >= passThreshold ? "good" : "bad") + '" style="width:' + stats.rate + '%"></div></div>' +
+        '<span class="li-rate-text" style="color:' + rateColor + '">' + stats.rate + '%</span>' +
+      '</div>' +
+    '</div>';
+  } else {
+    h += '<div class="last-inspection-bar"><div class="li-meta">' + t("dashNoData") + '</div></div>';
+  }
+  return h;
+}
+
+// ==== TAB 2: PHOTOS ====
+function capturePhoto(zoneId, itemId) {
+  var input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.capture = "environment";
+  input.onchange = function () {
+    var file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast(t("photoTooLarge")); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var canvas = document.createElement("canvas");
+        var maxSize = 800;
+        var w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        var photoId = "photo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
+        Storage.savePhoto(photoId, dataUrl).then(function () {
+          var zone = zones.find(function (z) { return z.zoneId === zoneId; });
+          if (zone) {
+            var item = zone.items.find(function (it) { return it.id === itemId; });
+            if (item) {
+              if (!item.photos) item.photos = [];
+              item.photos.push(photoId);
+              persist();
+              render();
+              showToast(t("photoAdded"));
+            }
+          }
+        });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function deletePhoto(zoneId, itemId, photoId) {
+  var zone = zones.find(function (z) { return z.zoneId === zoneId; });
+  if (!zone) return;
+  var item = zone.items.find(function (it) { return it.id === itemId; });
+  if (!item || !item.photos) return;
+  item.photos = item.photos.filter(function (p) { return p !== photoId; });
+  Storage.deletePhoto(photoId);
+  persist();
+  render();
+  showToast(t("photoDeleted"));
+}
+
+async function viewPhoto(photoId) {
+  var data = await Storage.getPhoto(photoId);
+  if (!data) return;
+  viewingPhotoData = data;
+  var overlay = document.createElement("div");
+  overlay.className = "photo-viewer-overlay";
+  overlay.onclick = function () { overlay.remove(); viewingPhotoData = null; };
+  overlay.innerHTML = '<button class="photo-viewer-close">&times;</button><img src="' + data + '" alt="Photo">';
+  document.body.appendChild(overlay);
+}
+
+function photosHtml(zoneId, itemId, photos) {
+  if (!photos || !photos.length) return "";
+  var h = '<div class="photo-thumbs">';
+  photos.forEach(function (pid) {
+    h += '<div class="photo-thumb" onclick="Storage.getPhoto(\'' + pid + '\').then(function(d){if(d){var o=document.createElement(\'div\');o.className=\'photo-viewer-overlay\';o.onclick=function(){o.remove()};o.innerHTML=\'<button class=photo-viewer-close>&times;</button><img src=\'+d+\' alt=Photo>\';document.body.appendChild(o)}})"">' +
+      '<img src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'/%3E" alt="">' +
+      '<button class="photo-thumb-x" onclick="event.stopPropagation();deletePhoto(\'' + zoneId + '\',\'' + itemId + '\',\'' + pid + '\')">&times;</button>' +
+    '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+// ==== TAB 2: REVIEW SCREEN ====
+function showReview() {
+  currentView = "review";
+  render();
+}
+
+function reviewHtml() {
+  var pass = 0, fail = 0, unchecked = 0;
+  selectedZones().forEach(function (z) {
+    z.items.forEach(function (i) {
+      if (i.status === "pass") pass++;
+      else if (i.status === "no_pass") fail++;
+      else unchecked++;
+    });
+  });
+  var total = pass + fail + unchecked;
+  var rate = total > 0 ? Math.round((pass / total) * 100) : 0;
+  var rateColor = rate >= passThreshold ? "#2E7D32" : "#C03025";
+  var zonesList = selectedZones().map(function (z) { return escapeHtml(z.zoneName); }).join(", ");
+
+  return '<div class="review-card">' +
+    '<h3>' + t("reviewTitle") + '</h3>' +
+    '<div class="grid grid-cols-3 gap-2 mb-4">' +
+      '<div class="p-3 rounded-xl bg-rose-50 text-center"><div class="text-xl font-black text-rose-700">' + fail + '</div><div class="text-xs font-bold text-rose-600">' + t("reviewNoPass") + '</div></div>' +
+      '<div class="p-3 rounded-xl bg-emerald-50 text-center"><div class="text-xl font-black text-emerald-700">' + pass + '</div><div class="text-xs font-bold text-emerald-600">' + t("reviewPass") + '</div></div>' +
+      '<div class="p-3 rounded-xl bg-slate-100 text-center"><div class="text-xl font-black text-slate-600">' + unchecked + '</div><div class="text-xs font-bold text-slate-500">' + t("reviewUnchecked") + '</div></div>' +
+    '</div>' +
+    '<div class="flex items-center gap-2 mb-4 p-3 rounded-xl bg-white border border-slate-200">' +
+      '<span class="text-xs font-bold text-slate-500">' + t("reviewAvg") + '</span>' +
+      '<div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:' + rate + '%;background:' + rateColor + '"></div></div>' +
+      '<span class="text-sm font-black" style="color:' + rateColor + '">' + rate + '%</span>' +
+    '</div>' +
+    '<div class="text-xs text-slate-500 mb-4"><span class="font-bold">' + t("reviewZones") + ':</span> ' + zonesList + '</div>' +
+    '<div class="flex gap-2">' +
+      '<button onclick="finishInspection()" class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-xs shadow-md transition-all btn-press">' + t("reviewFinish") + '</button>' +
+      '<button onclick="navigate(\'inspection\')" class="px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-black rounded-xl text-xs shadow-md transition-all">' + t("reviewBack") + '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+// ==== NON-CONFORMITIES ====
+var ncIdCounter = 0;
+
+function nextNcId() {
+  var max = 0;
+  ncs.forEach(function (nc) {
+    var num = parseInt(nc.id.replace("NC-", ""), 10);
+    if (num > max) max = num;
+  });
+  return "NC-" + String(max + 1).padStart(3, "0");
+}
+
+function checkRecurrent(itemText, zoneName, sessionId) {
+  var threshold = ncSettings.recurrentThreshold || 3;
+  var recentSessions = sessions.slice().sort(function (a, b) {
+    return (b.finishedAt || "").localeCompare(a.finishedAt || "");
+  }).slice(0, threshold);
+  if (recentSessions.length < threshold) return { recurrent: false, dates: [] };
+  var failDates = [];
+  for (var i = 0; i < recentSessions.length; i++) {
+    var s = recentSessions[i];
+    var failed = (s.items || []).some(function (it) {
+      return it.text === itemText && it.zoneName === zoneName && it.status === "no_pass";
+    });
+    if (!failed) return { recurrent: false, dates: [] };
+    failDates.push((s.finishedAt || "").slice(0, 10));
+  }
+  return { recurrent: true, dates: failDates };
+}
+
+function createNcsFromSession(session) {
+  var created = [];
+  (session.items || []).forEach(function (item) {
+    if (item.status !== "no_pass") return;
+    var rec = checkRecurrent(item.text, item.zoneName, session.id);
+    var nc = {
+      id: nextNcId(),
+      sessionId: session.id,
+      zoneName: item.zoneName,
+      itemText: item.text,
+      description: item.text,
+      status: "open",
+      recurrent: rec.recurrent,
+      recurrentDates: rec.dates,
+      createdAt: (session.finishedAt || "").slice(0, 10),
+      correctiveAction: ncSettings.defaultCorrectiveAction || "",
+      responsible: "",
+      deadline: "",
+      note: item.note || "",
+      photos: item.photos || []
+    };
+    ncs.push(nc);
+    created.push(nc);
+  });
+  if (ncSettings.autoCloseNCs) {
+    ncs.forEach(function (nc) {
+      if (nc.status === "closed") return;
+      var match = (session.items || []).some(function (it) {
+        return it.text === nc.itemText && it.zoneName === nc.zoneName && it.status === "pass";
+      });
+      if (match) { nc.status = "closed"; }
+    });
+  }
+  if (created.length) persist();
+  return created;
+}
+
+function ncListViewHtml() {
+  if (!ncs.length) return '<div class="empty-state"><p>' + t("noNCs") + '</p></div>';
+  var sorted = ncs.slice().sort(function (a, b) {
+    if (a.status === "open" && b.status !== "open") return -1;
+    if (a.status !== "open" && b.status === "open") return 1;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
+  var h = '<input type="text" class="text-input mb-3" placeholder="Search NCs..." id="nc-search" oninput="filterNCs()" style="width:100%">';
+  h += '<div id="nc-list-container">';
+  sorted.forEach(function (nc) {
+    h += ncCardHtml(nc);
+  });
+  h += '</div>';
+  return h;
+}
+
+function ncCardHtml(nc) {
+  var badgeClass = nc.status;
+  if (nc.status === "open" && nc.deadline && nc.deadline < new Date().toISOString().slice(0, 10)) badgeClass = "overdue";
+  var badges = '<span class="nc-badge ' + badgeClass + '">' + t("nc" + nc.status.charAt(0).toUpperCase() + nc.status.slice(1)) + '</span>';
+  if (nc.recurrent) badges += '<span class="nc-badge recurrent">' + t("ncRecurrent") + '</span>';
+  return '<div class="nc-card" onclick="viewNcDetail(\'' + nc.id + '\')">' +
+    '<div class="nc-info">' +
+      '<div class="nc-title">' + escapeHtml(nc.id) + ': ' + escapeHtml(nc.description) + '</div>' +
+      '<div class="nc-meta">' + escapeHtml(nc.zoneName) + ' &middot; ' + escapeHtml(nc.createdAt) + '</div>' +
+    '</div>' +
+    '<div class="nc-actions">' + badges + '</div>' +
+  '</div>';
+}
+
+function filterNCs() {
+  var query = (document.getElementById("nc-search") || {}).value || "";
+  query = query.toLowerCase();
+  var container = document.getElementById("nc-list-container");
+  if (!container) return;
+  var html = "";
+  ncs.forEach(function (nc) {
+    var match = !query ||
+      nc.id.toLowerCase().indexOf(query) !== -1 ||
+      nc.description.toLowerCase().indexOf(query) !== -1 ||
+      nc.zoneName.toLowerCase().indexOf(query) !== -1;
+    if (match) html += ncCardHtml(nc);
+  });
+  container.innerHTML = html || '<p class="muted">' + t("noNCs") + '</p>';
+}
+
+function viewNcDetail(ncId) {
+  viewingNcId = ncId;
+  currentView = "ncDetail";
+  render();
+}
+
+function ncDetailViewHtml() {
+  var nc = ncs.find(function (n) { return n.id === viewingNcId; });
+  if (!nc) return '<p class="muted">' + t("ncNotFound") + '</p>';
+  var h = '<div class="nc-detail">' +
+    '<button class="btn btn-light btn-sm mb-3" onclick="historySubView=\'ncs\';navigate(\'historique\')">&larr; ' + t("ncTitle") + '</button>' +
+    '<div class="nc-detail-header">' +
+      '<div class="ncd-title">' + escapeHtml(nc.id) + '</div>' +
+      '<div class="ncd-meta">' + escapeHtml(nc.zoneName) + ' &middot; ' + escapeHtml(nc.createdAt) + '</div>' +
+    '</div>';
+  if (nc.recurrent) {
+    h += '<div class="nc-recurrent-banner">' +
+      '<div class="ncr-title">' + t("ncRecurrent") + '</div>' +
+      '<div class="ncr-dates">' + t("ncRecurrentDesc") + ': ' + nc.recurrentDates.join(", ") + '</div>' +
+    '</div>';
+  }
+  h += '<div class="nc-form-group"><label>' + t("ncStatus") + '</label>' +
+    '<select id="nc-status-select" class="nc-status-select">' +
+      '<option value="open"' + (nc.status === "open" ? " selected" : "") + '>' + t("ncOpen") + '</option>' +
+      '<option value="in_progress"' + (nc.status === "in_progress" ? " selected" : "") + '>' + t("ncInProgress") + '</option>' +
+      '<option value="closed"' + (nc.status === "closed" ? " selected" : "") + '>' + t("ncClosed") + '</option>' +
+    '</select></div>';
+  h += '<div class="nc-form-group"><label>' + t("ncCorrective") + '</label>' +
+    '<textarea id="nc-corrective" rows="3">' + escapeHtml(nc.correctiveAction) + '</textarea></div>';
+  h += '<div class="nc-form-group"><label>' + t("ncResponsible") + '</label>' +
+    '<input type="text" id="nc-responsible" value="' + escapeHtml(nc.responsible) + '"></div>';
+  h += '<div class="nc-form-group"><label>' + t("ncDeadline") + '</label>' +
+    '<input type="date" id="nc-deadline" value="' + escapeHtml(nc.deadline) + '"></div>';
+  h += '<div class="nc-form-group"><label>' + t("noteLabel") + '</label>' +
+    '<textarea id="nc-note" rows="2">' + escapeHtml(nc.note) + '</textarea></div>';
+  h += '<button class="btn btn-primary" onclick="saveNcDetail()">' + t("ncSave") + '</button>';
+  h += '</div>';
+  return h;
+}
+
+function saveNcDetail() {
+  var nc = ncs.find(function (n) { return n.id === viewingNcId; });
+  if (!nc) return;
+  nc.status = document.getElementById("nc-status-select").value;
+  nc.correctiveAction = document.getElementById("nc-corrective").value;
+  nc.responsible = document.getElementById("nc-responsible").value;
+  nc.deadline = document.getElementById("nc-deadline").value;
+  nc.note = document.getElementById("nc-note").value;
+  persist();
+  showToast(t("ncSaved"));
+}
+
+// ==== TAB 4: NC ANALYTICS + DONUTS ====
+function ncAnalyticsHtml() {
+  var totalNcs = ncs.length;
+  var closed = ncs.filter(function (nc) { return nc.status === "closed"; }).length;
+  var inProgress = ncs.filter(function (nc) { return nc.status === "in_progress"; }).length;
+  var open = ncs.filter(function (nc) { return nc.status === "open"; }).length;
+  var today = new Date().toISOString().slice(0, 10);
+  var overdue = ncs.filter(function (nc) { return nc.status !== "closed" && nc.deadline && nc.deadline < today; }).length;
+  var recurrent = ncs.filter(function (nc) { return nc.recurrent; }).length;
+  var closedRate = totalNcs > 0 ? Math.round((closed / totalNcs) * 100) : 0;
+
+  var h = '<div class="dashboard-cards">' +
+    '<div class="stat-card"><div class="stat-value">' + totalNcs + '</div><div class="stat-label">' + t("ncTotal") + '</div></div>' +
+    '<div class="stat-card"><div class="stat-value" style="color:#2E7D32">' + closedRate + '%</div><div class="stat-label">' + t("ncClosedRate") + '</div></div>' +
+    '<div class="stat-card"><div class="stat-value" style="color:#C03925">' + recurrent + '</div><div class="stat-label">' + t("ncRecurrentCount") + '</div></div>' +
+    '<div class="stat-card"><div class="stat-value" style="color:#E65100">' + overdue + '</div><div class="stat-label">' + t("ncOverdueCount") + '</div></div>' +
+  '</div>';
+
+  h += '<div class="nc-status-list">' +
+    '<div class="nc-status-item"><div class="nc-status-dot closed"></div>' + t("ncStatusClosed") + ': ' + closed + '</div>' +
+    '<div class="nc-status-item"><div class="nc-status-dot in_progress"></div>' + t("ncStatusInProgress") + ': ' + inProgress + '</div>' +
+    '<div class="nc-status-item"><div class="nc-status-dot open"></div>' + t("ncStatusOpen") + ': ' + open + '</div>' +
+    '<div class="nc-status-item"><div class="nc-status-dot overdue"></div>' + t("ncStatusOverdue") + ': ' + overdue + '</div>' +
+  '</div>';
+
+  h += tagDonutsHtml();
+  return h;
+}
+
+function computeTagStats() {
+  var tagMap = {};
+  sessions.forEach(function (s) {
+    (s.items || []).forEach(function (item) {
+      var tags = item.tags || [];
+      if (item.tagIds && zones.length) {
+        zones.forEach(function (z) {
+          z.items.forEach(function (zi) {
+            if (zi.text === item.text && zi.tagIds) {
+              zi.tagIds.forEach(function (tid) {
+                var zone = zones.find(function (zz) { return zz.zoneId === z.zoneId; });
+                if (zone) {
+                  var tObj = (zone.tags || []).find(function (tt) { return tt.id === tid; });
+                  if (tObj) tags.push(tObj);
+                }
+              });
+            }
+          });
+        });
+      }
+      tags.forEach(function (tag) {
+        var key = tag.name;
+        if (!tagMap[key]) tagMap[key] = { name: tag.name, color: tag.color || "#666", pass: 0, noPass: 0, unchecked: 0 };
+        if (item.status === "pass") tagMap[key].pass++;
+        else if (item.status === "no_pass") tagMap[key].noPass++;
+        else tagMap[key].unchecked++;
+      });
+    });
+  });
+  zones.forEach(function (z) {
+    z.items.forEach(function (item) {
+      (item.tags || []).forEach(function (tag) {
+        var key = tag.name;
+        if (!tagMap[key]) tagMap[key] = { name: tag.name, color: tag.color || "#666", pass: 0, noPass: 0, unchecked: 0 };
+      });
+    });
+  });
+  return tagMap;
+}
+
+function renderDonutSvg(pass, noPass, unchecked) {
+  var total = pass + noPass + unchecked;
+  if (total === 0) total = 1;
+  var R = 35, C = 2 * Math.PI * R;
+  var pLen = (pass / total) * C;
+  var fLen = (noPass / total) * C;
+  var uLen = (unchecked / total) * C;
+  var offset = 0;
+  var passPct = Math.round((pass / (pass + noPass || 1)) * 100);
+
+  var svg = '<svg viewBox="0 0 100 100" width="80" height="80">';
+  if (pass > 0) { svg += '<circle cx="50" cy="50" r="' + R + '" fill="none" stroke="#2E7D32" stroke-width="10" stroke-dasharray="' + pLen + ' ' + (C - pLen) + '" stroke-dashoffset="' + (-offset) + '"/>'; offset += pLen; }
+  if (noPass > 0) { svg += '<circle cx="50" cy="50" r="' + R + '" fill="none" stroke="#C0392B" stroke-width="10" stroke-dasharray="' + fLen + ' ' + (C - fLen) + '" stroke-dashoffset="' + (-offset) + '"/>'; offset += fLen; }
+  if (unchecked > 0) { svg += '<circle cx="50" cy="50" r="' + R + '" fill="none" stroke="#E0E4EA" stroke-width="10" stroke-dasharray="' + uLen + ' ' + (C - uLen) + '" stroke-dashoffset="' + (-offset) + '"/>'; }
+  svg += '<text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="bold" fill="#333">' + passPct + '%</text>';
+  svg += '</svg>';
+  return svg;
+}
+
+function tagDonutsHtml() {
+  var tagStats = computeTagStats();
+  var keys = Object.keys(tagStats);
+  if (!keys.length) return '<p class="muted">' + t("donutNoTags") + '</p>';
+  var h = '<h4 class="mt-4 mb-2 font-bold text-sm text-slate-600">' + t("donutByTag") + '</h4><div class="donut-grid">';
+  keys.forEach(function (k) {
+    var ts = tagStats[k];
+    h += '<div class="donut-card">' +
+      renderDonutSvg(ts.pass, ts.noPass, ts.unchecked) +
+      '<div class="donut-title"><div class="donut-title-dot" style="background:' + escapeHtml(ts.color) + '"></div>' + escapeHtml(ts.name) + '</div>' +
+      '<div class="donut-legend">' +
+        '<span class="donut-legend-item"><div class="donut-legend-dot" style="background:#2E7D32"></div>' + ts.pass + '</span>' +
+        '<span class="donut-legend-item"><div class="donut-legend-dot" style="background:#C0392B"></div>' + ts.noPass + '</span>' +
+        '<span class="donut-legend-item"><div class="donut-legend-dot" style="background:#E0E4EA"></div>' + ts.unchecked + '</span>' +
+      '</div>' +
+    '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+// ==== TAB 5: NC SETTINGS + GLOBAL TAG MANAGER ====
+function saveNcSettings() {
+  ncSettings.overdueDays = parseInt(document.getElementById("nc-overdue-days").value, 10) || 7;
+  ncSettings.recurrentThreshold = parseInt(document.getElementById("nc-recurrent-threshold").value, 10) || 3;
+  ncSettings.defaultCorrectiveAction = document.getElementById("nc-default-corrective").value;
+  ncSettings.autoCloseNCs = document.getElementById("nc-auto-close").checked;
+  persist();
+  showToast(t("ncSettingsSaved"));
+}
+
+function ncSettingsHtml() {
+  return '<div class="nc-settings-section">' +
+    '<h3>' + t("ncSettingsTitle") + '</h3>' +
+    '<div class="nc-setting-row"><label>' + t("overdueDays") + '</label>' +
+      '<input type="number" id="nc-overdue-days" class="text-input" min="1" max="365" value="' + (ncSettings.overdueDays || 7) + '">' +
+      '<div class="nc-help">' + t("overdueDaysHelp") + '</div></div>' +
+    '<div class="nc-setting-row"><label>' + t("recurrentThreshold") + '</label>' +
+      '<input type="number" id="nc-recurrent-threshold" class="text-input" min="2" max="20" value="' + (ncSettings.recurrentThreshold || 3) + '">' +
+      '<div class="nc-help">' + t("recurrentThresholdHelp") + '</div></div>' +
+    '<div class="nc-setting-row"><label>' + t("defaultCorrective") + '</label>' +
+      '<textarea id="nc-default-corrective" class="text-input" rows="2">' + escapeHtml(ncSettings.defaultCorrectiveAction || "") + '</textarea>' +
+      '<div class="nc-help">' + t("defaultCorrectiveHelp") + '</div></div>' +
+    '<div class="nc-setting-row"><label class="nc-toggle">' +
+      '<input type="checkbox" id="nc-auto-close"' + (ncSettings.autoCloseNCs ? " checked" : "") + '> ' + t("autoCloseNCs") + '</label>' +
+      '<div class="nc-help">' + t("autoCloseNCsHelp") + '</div></div>' +
+    '<button class="btn btn-primary btn-sm" onclick="saveNcSettings()">' + ic("save") + t("ncSave") + '</button>' +
+  '</div>';
+}
+
+function getAllTagsGlobal() {
+  var tagMap = {};
+  zones.forEach(function (z) {
+    z.items.forEach(function (item) {
+      (item.tags || []).forEach(function (tag) {
+        var key = tag.name;
+        if (!tagMap[key]) tagMap[key] = { name: tag.name, color: tag.color || "#666", count: 0 };
+        tagMap[key].count++;
+      });
+    });
+  });
+  return Object.values(tagMap);
+}
+
+function globalTagManagerHtml() {
+  var tags = getAllTagsGlobal();
+  var h = '<div class="data-section"><h3 class="data-title">' + t("globalTagsTitle") + '</h3>';
+  if (!tags.length) {
+    h += '<p class="muted">' + t("globalTagNoTags") + '</p>';
+  } else {
+    h += '<div class="global-tag-list">';
+    tags.forEach(function (tag) {
+      h += '<div class="global-tag-row">' +
+        '<div class="gtr-color" style="background:' + escapeHtml(tag.color) + '"></div>' +
+        '<span class="gtr-name">' + escapeHtml(tag.name) + '</span>' +
+        '<span class="gtr-count">' + tag.count + ' ' + t("globalTagItems") + '</span>' +
+        '<div class="gtr-actions">' +
+          '<button class="btn btn-light btn-sm" onclick="renameGlobalTagPrompt(\'' + escapeHtml(tag.name).replace(/'/g, "\\'") + '\')">' + ic("pencil") + '</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteGlobalTagConfirm(\'' + escapeHtml(tag.name).replace(/'/g, "\\'") + '\')">' + ic("trash") + '</button>' +
+        '</div>' +
+      '</div>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="mt-3">' +
+    '<div class="add-item-row">' +
+      '<input id="global-tag-name-input" class="text-input" type="text" placeholder="' + t("tagName") + '" style="max-width:160px">' +
+      '<button class="btn btn-light btn-sm" onclick="createGlobalTagFromInput()">' + ic("plus") + t("globalTagCreateBtn") + '</button>' +
+    '</div></div>';
+  h += '</div>';
+  return h;
+}
+
+function renameGlobalTagPrompt(oldName) {
+  var newName = prompt(t("globalTagRename") + ": " + oldName, oldName);
+  if (!newName || newName === oldName) return;
+  zones.forEach(function (z) {
+    z.items.forEach(function (item) {
+      (item.tags || []).forEach(function (tag) {
+        if (tag.name === oldName) tag.name = newName;
+      });
+    });
+  });
+  persist();
+  render();
+  showToast(t("globalTagRenamed"));
+}
+
+function deleteGlobalTagConfirm(tagName) {
+  confirmDialog(t("globalTagConfirmDelete"), function () {
+    zones.forEach(function (z) {
+      z.items.forEach(function (item) {
+        item.tags = (item.tags || []).filter(function (tag) { return tag.name !== tagName; });
+      });
+    });
+    persist();
+    render();
+    showToast(t("globalTagDeleted"));
+  });
+}
+
+function createGlobalTagFromInput() {
+  var input = document.getElementById("global-tag-name-input");
+  var name = (input ? input.value : "").trim();
+  if (!name) return;
+  var colors = ["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA","#5C6BC0","#795548"];
+  var color = colors[Math.floor(Math.random() * colors.length)];
+  zones.forEach(function (z) {
+    if (z.items.length) {
+      var item = z.items[0];
+      if (!item.tags) item.tags = [];
+      item.tags.push({ name: name, color: color });
+    }
+  });
+  persist();
+  render();
+  showToast(t("globalTagCreated"));
 }
 
 // ---- Init ----
@@ -1829,6 +2446,8 @@ function render() {
       sessions = Array.isArray(data.sessions) ? data.sessions : [];
       selectedZoneIds = Array.isArray(data.selectedZoneIds) ? data.selectedZoneIds : [];
       if (typeof data.passThreshold === "number") passThreshold = data.passThreshold;
+      ncs = Array.isArray(data.ncs) ? data.ncs : [];
+      ncSettings = data.ncSettings && typeof data.ncSettings === "object" ? data.ncSettings : {};
     }
   } catch (e) {}
   try { await refreshFolderInfo(); } catch (e) {}

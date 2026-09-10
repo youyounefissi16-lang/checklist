@@ -15,9 +15,10 @@
 // ---------------------------------------------------------------------------
 
 const DB_NAME = "checklist-audit-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STATE_STORE = "state";
 const HANDLE_STORE = "handles";
+const PHOTO_STORE = "photos";
 const RECORD_KEY = "main";
 const HANDLE_KEY = "dbFolder";
 const FILE_NAME = "audit-data.json";
@@ -45,6 +46,7 @@ function openDB() {
       const db = req.result;
       if (!db.objectStoreNames.contains(STATE_STORE)) db.createObjectStore(STATE_STORE);
       if (!db.objectStoreNames.contains(HANDLE_STORE)) db.createObjectStore(HANDLE_STORE);
+      if (!db.objectStoreNames.contains(PHOTO_STORE)) db.createObjectStore(PHOTO_STORE);
     };
     req.onsuccess = function () { resolve(req.result); };
     req.onerror = function () { reject(req.error); };
@@ -64,6 +66,22 @@ function idbPut(db, store, key, value) {
     tx.objectStore(store).put(value, key);
     tx.oncomplete = function () { resolve(); };
     tx.onerror = function () { reject(tx.error); };
+  });
+}
+function idbDelete(db, store, key) {
+  return new Promise(function (resolve, reject) {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = function () { resolve(); };
+    tx.onerror = function () { reject(tx.error); };
+  });
+}
+function idbGetAll(db, store) {
+  return new Promise(function (resolve, reject) {
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = function () { resolve(req.result); };
+    req.onerror = function () { reject(req.error); };
   });
 }
 
@@ -187,6 +205,35 @@ window.Storage = {
   async saveState(state) {
     saveChain = saveChain.then(function () { return doSave(state); }).catch(function () {});
     return saveChain;
+  },
+
+  // ---- Photo storage (IndexedDB only) ----
+  async savePhoto(id, base64Data) {
+    try {
+      const db = await openDB();
+      await idbPut(db, PHOTO_STORE, id, base64Data);
+    } catch (e) {}
+  },
+
+  async getPhoto(id) {
+    try {
+      const db = await openDB();
+      return await idbGet(db, PHOTO_STORE, id);
+    } catch (e) { return null; }
+  },
+
+  async deletePhoto(id) {
+    try {
+      const db = await openDB();
+      await idbDelete(db, PHOTO_STORE, id);
+    } catch (e) {}
+  },
+
+  async listPhotos() {
+    try {
+      const db = await openDB();
+      return await idbGetAll(db, PHOTO_STORE);
+    } catch (e) { return []; }
   },
 
   // ---- Language preference (small, kept in localStorage) ----
