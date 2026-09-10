@@ -2128,9 +2128,10 @@ function ncListViewHtml() {
 function ncCardHtml(nc) {
   var badgeClass = nc.status;
   if (nc.status === "open" && nc.deadline && nc.deadline < new Date().toISOString().slice(0, 10)) badgeClass = "overdue";
+  var cardClass = "nc-card status-" + badgeClass;
   var badges = '<span class="nc-badge ' + badgeClass + '">' + t("nc" + nc.status.charAt(0).toUpperCase() + nc.status.slice(1)) + '</span>';
   if (nc.recurrent) badges += '<span class="nc-badge recurrent">' + t("ncRecurrent") + '</span>';
-  return '<div class="nc-card" onclick="viewNcDetail(\'' + nc.id + '\')">' +
+  return '<div class="' + cardClass + '" onclick="viewNcDetail(\'' + nc.id + '\')">' +
     '<div class="nc-info">' +
       '<div class="nc-title">' + escapeHtml(nc.id) + ': ' + escapeHtml(nc.description) + '</div>' +
       '<div class="nc-meta">' + escapeHtml(nc.zoneName) + ' &middot; ' + escapeHtml(nc.createdAt) + '</div>' +
@@ -2165,15 +2166,18 @@ function ncDetailViewHtml() {
   var nc = ncs.find(function (n) { return n.id === viewingNcId; });
   if (!nc) return '<p class="muted">' + t("ncNotFound") + '</p>';
   var h = '<div class="nc-detail">' +
-    '<button class="btn btn-light btn-sm" style="margin-bottom:12px" onclick="historySubView=\'ncs\';navigate(\'historique\')">&larr; ' + t("ncTitle") + '</button>' +
+    '<button class="btn btn-light btn-sm" style="margin-bottom:14px" onclick="historySubView=\'ncs\';navigate(\'historique\')">&larr; ' + t("ncTitle") + '</button>' +
     '<div class="nc-detail-header">' +
       '<div class="ncd-title">' + escapeHtml(nc.id) + '</div>' +
       '<div class="ncd-meta">' + escapeHtml(nc.zoneName) + ' &middot; ' + escapeHtml(nc.createdAt) + '</div>' +
     '</div>';
   if (nc.recurrent) {
     h += '<div class="nc-recurrent-banner">' +
-      '<div class="ncr-title">' + t("ncRecurrent") + '</div>' +
-      '<div class="ncr-dates">' + t("ncRecurrentDesc") + ': ' + nc.recurrentDates.join(", ") + '</div>' +
+      '<span class="ncr-icon">&#9888;</span>' +
+      '<div class="ncr-content">' +
+        '<div class="ncr-title">' + t("ncRecurrent") + '</div>' +
+        '<div class="ncr-dates">' + t("ncRecurrentDesc") + ': ' + nc.recurrentDates.join(", ") + '</div>' +
+      '</div>' +
     '</div>';
   }
   h += '<div class="nc-form-group"><label>' + t("ncStatus") + '</label>' +
@@ -2190,7 +2194,10 @@ function ncDetailViewHtml() {
     '<input type="date" id="nc-deadline" value="' + escapeHtml(nc.deadline) + '"></div>';
   h += '<div class="nc-form-group"><label>' + t("noteLabel") + '</label>' +
     '<textarea id="nc-note" rows="2">' + escapeHtml(nc.note) + '</textarea></div>';
-  h += '<button class="btn btn-primary" onclick="saveNcDetail()">' + t("ncSave") + '</button>';
+  h += '<div class="nc-form-actions">' +
+    '<button class="btn btn-primary" onclick="saveNcDetail()">' + ic("save") + t("ncSave") + '</button>' +
+    '<button class="btn btn-light" onclick="historySubView=\'ncs\';navigate(\'historique\')">' + t("reviewBack") + '</button>' +
+  '</div>';
   h += '</div>';
   return h;
 }
@@ -2225,11 +2232,16 @@ function ncAnalyticsHtml() {
     '<div class="stat-card"><div class="stat-value" style="color:#E65100">' + overdue + '</div><div class="stat-label">' + t("ncOverdueCount") + '</div></div>' +
   '</div>';
 
-  h += '<div class="nc-status-list">' +
-    '<div class="nc-status-item"><div class="nc-status-dot closed"></div>' + t("ncStatusClosed") + ': ' + closed + '</div>' +
-    '<div class="nc-status-item"><div class="nc-status-dot in_progress"></div>' + t("ncStatusInProgress") + ': ' + inProgress + '</div>' +
-    '<div class="nc-status-item"><div class="nc-status-dot open"></div>' + t("ncStatusOpen") + ': ' + open + '</div>' +
-    '<div class="nc-status-item"><div class="nc-status-dot overdue"></div>' + t("ncStatusOverdue") + ': ' + overdue + '</div>' +
+  var maxCount = Math.max(closed, inProgress, open, overdue, 1);
+
+  h += '<div class="nc-status-breakdown">' +
+    '<h4>' + t("ncStatus") + '</h4>' +
+    '<div class="nc-status-bars">' +
+      '<div class="nc-bar-row"><span class="nc-bar-label"><span class="nc-bar-dot" style="background:#2E7D32"></span>' + t("ncStatusClosed") + '</span><div class="nc-bar-track"><div class="nc-bar-fill closed" style="width:' + Math.round((closed / maxCount) * 100) + '%"></div></div><span class="nc-bar-count">' + closed + '</span></div>' +
+      '<div class="nc-bar-row"><span class="nc-bar-label"><span class="nc-bar-dot" style="background:#FB8C00"></span>' + t("ncStatusInProgress") + '</span><div class="nc-bar-track"><div class="nc-bar-fill in_progress" style="width:' + Math.round((inProgress / maxCount) * 100) + '%"></div></div><span class="nc-bar-count">' + inProgress + '</span></div>' +
+      '<div class="nc-bar-row"><span class="nc-bar-label"><span class="nc-bar-dot" style="background:#1E88E5"></span>' + t("ncStatusOpen") + '</span><div class="nc-bar-track"><div class="nc-bar-fill open" style="width:' + Math.round((open / maxCount) * 100) + '%"></div></div><span class="nc-bar-count">' + open + '</span></div>' +
+      '<div class="nc-bar-row"><span class="nc-bar-label"><span class="nc-bar-dot" style="background:#C0392B"></span>' + t("ncStatusOverdue") + '</span><div class="nc-bar-track"><div class="nc-bar-fill overdue" style="width:' + Math.round((overdue / maxCount) * 100) + '%"></div></div><span class="nc-bar-count">' + overdue + '</span></div>' +
+    '</div>' +
   '</div>';
 
   h += tagDonutsHtml();
@@ -2379,7 +2391,7 @@ function globalTagManagerHtml() {
     });
     h += '</div>';
   }
-  h += '<div class="mt-3">' +
+  h += '<div style="margin-top:16px">' +
     '<div class="add-item-row">' +
       '<input id="global-tag-name-input" class="text-input" type="text" placeholder="' + t("tagName") + '" style="max-width:160px">' +
       '<button class="btn btn-light btn-sm" onclick="createGlobalTagFromInput()">' + ic("plus") + t("globalTagCreateBtn") + '</button>' +
