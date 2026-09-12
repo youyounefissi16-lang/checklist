@@ -317,14 +317,14 @@ function saveItemText(zoneId, itemId) {
   showToast(t("saved"));
 }
 
-var TAG_COLORS = ["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA","#5C6BC0","#795548"];
+var SECTION_COLORS = ["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA","#5C6BC0","#795548"];
 
-function addTagToItem(zoneId, itemId) {
-  var nameInput = document.getElementById("tag-name-" + itemId);
+function addSectionToItem(zoneId, itemId) {
+  var nameInput = document.getElementById("section-name-" + itemId);
   var name = nameInput.value.trim();
   if (!name) return;
-  var colorBtn = document.querySelector(".tag-color-picker[data-item='" + itemId + "'] .tag-color-btn.active");
-  var color = colorBtn ? colorBtn.getAttribute("data-color") : TAG_COLORS[0];
+  var colorBtn = document.querySelector(".section-color-picker[data-item='" + itemId + "'] .section-color-btn.active");
+  var color = colorBtn ? colorBtn.getAttribute("data-color") : SECTION_COLORS[0];
   var zone = zones.find(function (z) { return z.zoneId === zoneId; });
   var item = zone && zone.items.find(function (i) { return i.id === itemId; });
   if (!item) return;
@@ -334,7 +334,7 @@ function addTagToItem(zoneId, itemId) {
   render();
 }
 
-function removeTagFromItem(zoneId, itemId, tagIndex) {
+function removeSectionFromItem(zoneId, itemId, tagIndex) {
   var zone = zones.find(function (z) { return z.zoneId === zoneId; });
   var item = zone && zone.items.find(function (i) { return i.id === itemId; });
   if (!item || !item.tags) return;
@@ -343,19 +343,19 @@ function removeTagFromItem(zoneId, itemId, tagIndex) {
   render();
 }
 
-function selectTagColor(itemId, color) {
-  var picker = document.querySelector(".tag-color-picker[data-item='" + itemId + "']");
+function selectSectionColor(itemId, color) {
+  var picker = document.querySelector(".section-color-picker[data-item='" + itemId + "']");
   if (!picker) return;
-  var btns = picker.querySelectorAll(".tag-color-btn");
+  var btns = picker.querySelectorAll(".section-color-btn");
   for (var i = 0; i < btns.length; i++) btns[i].classList.remove("active");
-  var active = picker.querySelector(".tag-color-btn[data-color='" + color + "']");
+  var active = picker.querySelector(".section-color-btn[data-color='" + color + "']");
   if (active) active.classList.add("active");
 }
 
-function tagBadgesHtml(tags) {
+function sectionBadgesHtml(tags) {
   if (!tags || !tags.length) return "";
-  return '<div class="tag-badges">' + tags.map(function (tag) {
-    return '<span class="tag-badge" style="background:' + escapeHtml(tag.color) + '">' + escapeHtml(tag.name) + '</span>';
+  return '<div class="section-badges">' + tags.map(function (tag) {
+    return '<span class="section-badge" style="background:' + escapeHtml(tag.color) + '">' + escapeHtml(tag.name) + '</span>';
   }).join("") + '</div>';
 }
 
@@ -681,7 +681,7 @@ function reportRowsHtml(logs) {
         "<div class=\"report-info\">" +
           '<div class="report-zone">' + t("zone") + " " + escapeHtml(log.zoneName) + "</div>" +
           '<div class="report-text">' + escapeHtml(log.text) + "</div>" +
-          tagBadgesHtml(log.tags) +
+          sectionBadgesHtml(log.tags) +
           '<div class="report-meta">' + meta + "</div>" +
           note +
         "</div>" +
@@ -1678,7 +1678,7 @@ function render() {
               return (
                 '<li class="item-row" id="row-' + zone.zoneId + "-" + item.id + '">' +
                   '<div class="item-text">' + escapeHtml(item.text) + "</div>" +
-                  tagBadgesHtml(item.tags) +
+                  sectionBadgesHtml(item.tags) +
                   '<div class="item-actions">' +
                     "<button class=\"status-btn\" data-st=\"pass\" style=\"" + passStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','pass')\">" + ic("check") + t("pass") + "</button>" +
                     "<button class=\"status-btn\" data-st=\"no_pass\" style=\"" + noPassStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','no_pass')\">" + ic("x") + t("noPass") + "</button>" +
@@ -1827,19 +1827,19 @@ function render() {
                     ? '<div class="note-display"><span class="note-text">' + escapeHtml(item.note) + "</span></div>"
                     : "") +
                   (item.tags && item.tags.length
-                    ? '<div class="tag-badges tag-badges-settings">' + item.tags.map(function (tag, ti) {
-                        return '<span class="tag-badge" style="background:' + escapeHtml(tag.color) + '">' + escapeHtml(tag.name) +
-                          '<button class="tag-badge-x" onclick="removeTagFromItem(\'' + zone.zoneId + "','" + item.id + "'," + ti + ")\">&times;</button></span>";
+                    ? '<div class="section-badges section-badges-settings">' + item.tags.map(function (tag, ti) {
+                        return '<span class="section-badge" style="background:' + escapeHtml(tag.color) + '">' + escapeHtml(tag.name) +
+                          '<button class="section-badge-x" onclick="removeSectionFromItem(\'' + zone.zoneId + "','" + item.id + "'," + ti + ")\">&times;</button></span>";
                       }).join("") + "</div>"
                     : "") +
-                  '<div class="tag-add-row">' +
-                    '<input id="tag-name-' + item.id + '" class="text-input tag-name-input" type="text" placeholder="' + t("tagName") + '">' +
-                    '<div class="tag-color-picker" data-item="' + item.id + '">' +
-                      TAG_COLORS.map(function (c) {
-                        return '<button class="tag-color-btn' + (c === TAG_COLORS[0] ? " active" : "") + '" data-color="' + c + '" style="background:' + c + '" onclick="selectTagColor(\'' + item.id + "','" + c + "')\"></button>";
+                  '<div class="section-add-row">' +
+                    '<input id="section-name-' + item.id + '" class="text-input section-name-input" type="text" placeholder="' + t("sectionName") + '">' +
+                    '<div class="section-color-picker" data-item="' + item.id + '">' +
+                      SECTION_COLORS.map(function (c) {
+                        return '<button class="section-color-btn' + (c === SECTION_COLORS[0] ? " active" : "") + '" data-color="' + c + '" style="background:' + c + '" onclick="selectSectionColor(\'' + item.id + "','" + c + "')\"></button>";
                       }).join("") +
                     '</div>' +
-                    '<button class="btn btn-light btn-sm" onclick="addTagToItem(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("plus") + t("addTag") + "</button>" +
+                    '<button class="btn btn-light btn-sm" onclick="addSectionToItem(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("plus") + t("addSection") + "</button>" +
                   "</div>" +
                 "</li>"
               );
@@ -1883,7 +1883,7 @@ function render() {
         "</div>" +
         zoneCards +
         ncSettingsHtml() +
-        globalTagManagerHtml() +
+        globalSectionManagerHtml() +
         '<div class="data-section">' +
           "<h3 class=\"data-title\">" + t("dataManagement") + "</h3>" +
           '<p class="muted">' + t("dataHelp") + "</p>" +
@@ -2350,11 +2350,11 @@ function ncAnalyticsHtml() {
     '</div>' +
   '</div>';
 
-  h += tagDonutsHtml();
+  h += sectionDonutsHtml();
   return h;
 }
 
-function computeTagStats() {
+function computeSectionStats() {
   var tagMap = {};
   sessions.forEach(function (s) {
     (s.items || []).forEach(function (item) {
@@ -2413,11 +2413,11 @@ function renderDonutSvg(pass, noPass, unchecked) {
   return svg;
 }
 
-function tagDonutsHtml() {
-  var tagStats = computeTagStats();
+function sectionDonutsHtml() {
+  var tagStats = computeSectionStats();
   var keys = Object.keys(tagStats);
-  if (!keys.length) return '<p class="muted">' + t("donutNoTags") + '</p>';
-  var h = '<h3 style="margin:16px 0 12px;font-size:14px;font-weight:700;color:#44556B">' + t("donutByTag") + '</h3><div class="donut-grid">';
+  if (!keys.length) return '<p class="muted">' + t("donutNoSections") + '</p>';
+  var h = '<h3 style="margin:16px 0 12px;font-size:14px;font-weight:700;color:#44556B">' + t("donutBySection") + '</h3><div class="donut-grid">';
   keys.forEach(function (k) {
     var ts = tagStats[k];
     h += '<div class="donut-card">' +
@@ -2463,7 +2463,7 @@ function ncSettingsHtml() {
   '</div>';
 }
 
-function getAllTagsGlobal() {
+function getAllSectionsGlobal() {
   var tagMap = {};
   zones.forEach(function (z) {
     z.items.forEach(function (item) {
@@ -2477,21 +2477,21 @@ function getAllTagsGlobal() {
   return Object.values(tagMap);
 }
 
-function globalTagManagerHtml() {
-  var tags = getAllTagsGlobal();
-  var h = '<div class="data-section"><h3 class="data-title">' + t("globalTagsTitle") + '</h3>';
+function globalSectionManagerHtml() {
+  var tags = getAllSectionsGlobal();
+  var h = '<div class="data-section"><h3 class="data-title">' + t("globalSectionsTitle") + '</h3>';
   if (!tags.length) {
-    h += '<p class="muted">' + t("globalTagNoTags") + '</p>';
+    h += '<p class="muted">' + t("globalSectionNoSections") + '</p>';
   } else {
-    h += '<div class="global-tag-list">';
+    h += '<div class="global-section-list">';
     tags.forEach(function (tag) {
-      h += '<div class="global-tag-row">' +
+      h += '<div class="global-section-row">' +
         '<div class="gtr-color" style="background:' + escapeHtml(tag.color) + '"></div>' +
         '<span class="gtr-name">' + escapeHtml(tag.name) + '</span>' +
-        '<span class="gtr-count">' + tag.count + ' ' + t("globalTagItems") + '</span>' +
+        '<span class="gtr-count">' + tag.count + ' ' + t("globalSectionItems") + '</span>' +
         '<div class="gtr-actions">' +
-          '<button class="btn btn-light btn-sm" onclick="renameGlobalTagPrompt(\'' + escapeHtml(tag.name).replace(/'/g, "\\'") + '\')">' + ic("pencil") + '</button>' +
-          '<button class="btn btn-danger btn-sm" onclick="deleteGlobalTagConfirm(\'' + escapeHtml(tag.name).replace(/'/g, "\\'") + '\')">' + ic("trash") + '</button>' +
+          '<button class="btn btn-light btn-sm" onclick="renameGlobalSectionPrompt(\'' + escapeHtml(tag.name).replace(/'/g, "\\'") + '\')">' + ic("pencil") + '</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteGlobalSectionConfirm(\'' + escapeHtml(tag.name).replace(/'/g, "\\'") + '\')">' + ic("trash") + '</button>' +
         '</div>' +
       '</div>';
     });
@@ -2499,15 +2499,15 @@ function globalTagManagerHtml() {
   }
   h += '<div style="margin-top:16px">' +
     '<div class="add-item-row">' +
-      '<input id="global-tag-name-input" class="text-input" type="text" placeholder="' + t("tagName") + '" style="max-width:160px">' +
-      '<button class="btn btn-light btn-sm" onclick="createGlobalTagFromInput()">' + ic("plus") + t("globalTagCreateBtn") + '</button>' +
+      '<input id="global-section-name-input" class="text-input" type="text" placeholder="' + t("sectionName") + '" style="max-width:160px">' +
+      '<button class="btn btn-light btn-sm" onclick="createGlobalSectionFromInput()">' + ic("plus") + t("globalSectionCreateBtn") + '</button>' +
     '</div></div>';
   h += '</div>';
   return h;
 }
 
-function renameGlobalTagPrompt(oldName) {
-  var newName = prompt(t("globalTagRename") + ": " + oldName, oldName);
+function renameGlobalSectionPrompt(oldName) {
+  var newName = prompt(t("globalSectionRename") + ": " + oldName, oldName);
   if (!newName || newName === oldName) return;
   zones.forEach(function (z) {
     z.items.forEach(function (item) {
@@ -2518,11 +2518,11 @@ function renameGlobalTagPrompt(oldName) {
   });
   persist();
   render();
-  showToast(t("globalTagRenamed"));
+  showToast(t("globalSectionRenamed"));
 }
 
-function deleteGlobalTagConfirm(tagName) {
-  confirmDialog(t("globalTagConfirmDelete"), function () {
+function deleteGlobalSectionConfirm(tagName) {
+  confirmDialog(t("globalSectionConfirmDelete"), function () {
     zones.forEach(function (z) {
       z.items.forEach(function (item) {
         item.tags = (item.tags || []).filter(function (tag) { return tag.name !== tagName; });
@@ -2530,12 +2530,12 @@ function deleteGlobalTagConfirm(tagName) {
     });
     persist();
     render();
-    showToast(t("globalTagDeleted"));
+    showToast(t("globalSectionDeleted"));
   });
 }
 
-function createGlobalTagFromInput() {
-  var input = document.getElementById("global-tag-name-input");
+function createGlobalSectionFromInput() {
+  var input = document.getElementById("global-section-name-input");
   var name = (input ? input.value : "").trim();
   if (!name) return;
   var colors = ["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA","#5C6BC0","#795548"];
@@ -2549,7 +2549,7 @@ function createGlobalTagFromInput() {
   });
   persist();
   render();
-  showToast(t("globalTagCreated"));
+  showToast(t("globalSectionCreated"));
 }
 
 // ---- Init ----

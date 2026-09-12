@@ -684,18 +684,18 @@ body {
   color: var(--muted);
 }
 
-/* ---- Tag badges ---- */
-.tag-badges {
+/* ---- Section badges ---- */
+.section-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
 }
-.tag-badges-settings {
+.section-badges-settings {
   margin-top: 6px;
   margin-bottom: 4px;
 }
-.tag-badge {
+.section-badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -707,7 +707,7 @@ body {
   white-space: nowrap;
   line-height: 1.4;
 }
-.tag-badge-x {
+.section-badge-x {
   background: none;
   border: none;
   color: rgba(255,255,255,0.8);
@@ -717,27 +717,27 @@ body {
   cursor: pointer;
   margin: 0;
 }
-.tag-badge-x:hover { color: #fff; }
+.section-badge-x:hover { color: #fff; }
 
-/* ---- Tag add row ---- */
-.tag-add-row {
+/* ---- Section add row ---- */
+.section-add-row {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 6px;
   flex-wrap: wrap;
 }
-.tag-name-input {
+.section-name-input {
   max-width: 120px;
   font-size: 12px !important;
   padding: 4px 8px !important;
 }
-.tag-color-picker {
+.section-color-picker {
   display: flex;
   gap: 3px;
   align-items: center;
 }
-.tag-color-btn {
+.section-color-btn {
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -746,7 +746,7 @@ body {
   padding: 0;
   transition: border-color 0.15s;
 }
-.tag-color-btn.active {
+.section-color-btn.active {
   border-color: #333;
   box-shadow: 0 0 0 2px #fff;
 }
@@ -1475,11 +1475,11 @@ body {
   cursor: pointer;
 }
 
-/* ---- Global tag manager ---- */
-.global-tag-list {
+/* ---- Global section manager ---- */
+.global-section-list {
   margin-top: 12px;
 }
-.global-tag-row {
+.global-section-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1490,25 +1490,25 @@ body {
   border: 1px solid #E8ECF0;
   transition: border-color 0.15s ease;
 }
-.global-tag-row:hover { border-color: #B0BEC5; }
-.global-tag-row .gtr-color {
+.global-section-row:hover { border-color: #B0BEC5; }
+.global-section-row .gtr-color {
   width: 16px;
   height: 16px;
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
-.global-tag-row .gtr-name {
+.global-section-row .gtr-name {
   flex: 1;
   font-weight: 600;
   font-size: 14px;
   color: #333;
 }
-.global-tag-row .gtr-count {
+.global-section-row .gtr-count {
   font-size: 12px;
   color: #6B7A8D;
 }
-.global-tag-row .gtr-actions {
+.global-section-row .gtr-actions {
   display: flex;
   gap: 4px;
 }
