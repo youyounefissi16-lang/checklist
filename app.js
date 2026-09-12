@@ -603,6 +603,7 @@ function finishInspection() {
       i.checkedAt = null;
       i.note = "";
       i.noteColor = "red";
+      i.photos = [];
     });
   });
   selectedZoneIds = [];
