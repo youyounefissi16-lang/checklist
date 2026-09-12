@@ -581,7 +581,8 @@ function finishInspection() {
         checkedAt: i.checkedAt,
         note: i.note,
         noteColor: i.noteColor || "red",
-        tags: i.tags || []
+        tags: i.tags || [],
+        photos: i.photos || []
       });
     });
   });
@@ -697,7 +698,7 @@ function buildReportHtml(logs, meta) {
   );
 }
 
-function exportReportPdf(logs, meta) {
+async function exportReportPdf(logs, meta) {
   try {
   var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   var W = 210, H = 297, ML = 14, MR = 14, CW = W - ML - MR;
@@ -711,6 +712,19 @@ function exportReportPdf(logs, meta) {
   var GUTTER = { pass: [46, 125, 50], no_pass: [192, 57, 43], unchecked: [148, 163, 184] };
   var NOTE_RGB = { green: [27, 122, 46], red: [183, 28, 28] };
   var BAR_TRACK = [225, 230, 235];
+
+  // ---- Pre-load all photos from IndexedDB for PDF embedding ----
+  var photoIds = [];
+  logs.forEach(function (log) {
+    (log.photos || []).forEach(function (pid) {
+      if (photoIds.indexOf(pid) === -1) photoIds.push(pid);
+    });
+  });
+  var photoMap = {};
+  await Promise.all(photoIds.map(async function (pid) {
+    var data = await Storage.getPhoto(pid);
+    if (data) photoMap[pid] = data;
+  }));
 
   var title = meta.title || t("reportTitle");
   var dateStr = (meta.dateLabel || t("generatedOn")) + " " + (meta.date || "");
@@ -1067,6 +1081,35 @@ function exportReportPdf(logs, meta) {
       doc.setFont("helvetica", "normal");
       y = wrap(log.note, ML + 20, y, CW - 20, 8.5);
     }
+
+    // ---- Inline photos ----
+    if (log.photos && log.photos.length) {
+      var PHOTO_MAX_W = CW - 10;
+      var PHOTO_MAX_H = 40;
+      log.photos.forEach(function (pid, pIdx) {
+        var dataUrl = photoMap[pid];
+        if (!dataUrl) return;
+        try {
+          var imgW = PHOTO_MAX_W;
+          var imgH = PHOTO_MAX_H;
+          if (typeof doc.getImageProperties === "function") {
+            var props = doc.getImageProperties(dataUrl);
+            var ratio = props.width / props.height;
+            if (imgW / ratio <= PHOTO_MAX_H) { imgH = imgW / ratio; }
+            else { imgW = imgH * ratio; }
+          }
+          ensure(imgH + 6);
+          doc.addImage(dataUrl, "JPEG", ML + 6, y, imgW, imgH);
+          y += imgH + 2;
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7);
+          doc.setTextColor(140);
+          doc.text("Photo " + (pIdx + 1) + "/" + log.photos.length, ML + 6, y);
+          y += 3;
+        } catch (e) { /* skip unrenderable images */ }
+      });
+    }
+
     y += 5;
   });
 
@@ -1103,8 +1146,8 @@ function exportReportPdf(logs, meta) {
     showToast(t("exportError") + ": " + (err && err.message ? err.message : err));
   }
 }
-function exportInspectionPDF() {
-  exportReportPdf(zonesToLogs(), {
+async function exportInspectionPDF() {
+  await exportReportPdf(zonesToLogs(), {
     title: t("reportTitle"),
     dateLabel: t("generatedOn"),
     date: new Date().toLocaleString(),
@@ -1112,10 +1155,10 @@ function exportInspectionPDF() {
   });
 }
 
-function exportSessionPDF(sessionId) {
+async function exportSessionPDF(sessionId) {
   const s = sessions.find(function (x) { return x.id === sessionId; });
   if (!s) return;
-  exportReportPdf(s.items || [], {
+  await exportReportPdf(s.items || [], {
     title: t("reportTitle"),
     dateLabel: t("finishedOn"),
     date: formatDateTime(s.finishedAt),
