@@ -112,7 +112,8 @@ const ICONS = {
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>',
   alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>'
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>'
 };
 
 function ic(name) {
@@ -1684,7 +1685,7 @@ function render() {
                   "</div>" +
                   noteBlock +
                   photosHtml(zone.zoneId, item.id, item.photos) +
-                  '<button class="photo-add-btn" onclick="capturePhoto(\'' + zone.zoneId + '\',\'' + item.id + "')\">" + ic("note") + " " + t("addPhoto") + "</button>" +
+                  '<button class="photo-add-btn" onclick="capturePhoto(\'' + zone.zoneId + '\',\'' + item.id + "')\">" + ic("camera") + " " + t("addPhoto") + "</button>" +
                   meta +
                 "</li>"
               );
@@ -1914,6 +1915,7 @@ function render() {
   }
 
   app.innerHTML = shell(content);
+  loadPhotoThumbs();
 }
 
 // ==== TAB 1: DASHBOARD ====
@@ -2085,13 +2087,24 @@ function photosHtml(zoneId, itemId, photos) {
   if (!photos || !photos.length) return "";
   var h = '<div class="photo-thumbs">';
   photos.forEach(function (pid) {
-    h += '<div class="photo-thumb" onclick="Storage.getPhoto(\'' + pid + '\').then(function(d){if(d){var o=document.createElement(\'div\');o.className=\'photo-viewer-overlay\';o.onclick=function(){o.remove()};o.innerHTML=\'<button class=photo-viewer-close>&times;</button><img src=\'+d+\' alt=Photo>\';document.body.appendChild(o)}})"">' +
-      '<img src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'/%3E" alt="">' +
+    h += '<div class="photo-thumb" onclick="viewPhoto(\'' + pid + '\')">' +
+      '<img data-photo-id="' + pid + '" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\'%3E%3Crect width=\'48\' height=\'48\' fill=\'%23F0F4F8\' rx=\'4\'/%3E%3Ctext x=\'24\' y=\'28\' text-anchor=\'middle\' fill=\'%2394A3B8\' font-size=\'16\'%3E%E2%80%A6%3C/text%3E%3C/svg%3E" alt="">' +
       '<button class="photo-thumb-x" onclick="event.stopPropagation();deletePhoto(\'' + zoneId + '\',\'' + itemId + '\',\'' + pid + '\')">&times;</button>' +
     '</div>';
   });
   h += '</div>';
   return h;
+}
+
+function loadPhotoThumbs() {
+  var imgs = document.querySelectorAll('.photo-thumb img[data-photo-id]');
+  imgs.forEach(function (img) {
+    var pid = img.getAttribute('data-photo-id');
+    if (!pid) return;
+    Storage.getPhoto(pid).then(function (data) {
+      if (data) img.src = data;
+    });
+  });
 }
 
 // ==== TAB 2: REVIEW SCREEN ====
