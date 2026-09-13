@@ -793,8 +793,21 @@ function reportRowsHtml(logs) {
 }
 
 function buildReportHtml(logs, meta) {
+  var tPass = 0, tFail = 0;
+  logs.forEach(function (l) {
+    if (l.status === "pass") tPass++;
+    else if (l.status === "no_pass") tFail++;
+  });
+  var tEval = tPass + tFail;
+  var tEmoji = "";
+  if (tEval > 0) {
+    var tRate = (tPass / tEval) * 100;
+    if (tRate >= passThreshold) tEmoji = "\uD83D\uDE0A";
+    else if (tRate >= passThreshold - 20) tEmoji = "\uD83D\uDE10";
+    else tEmoji = "\uD83D\uDE21";
+  }
   return (
-    '<h3 class="report-heading">' + escapeHtml(meta.title || t("reportTitle")) + "</h3>" +
+    '<h3 class="report-heading">' + escapeHtml(meta.title || t("reportTitle")) + (tEmoji ? ' <span class="report-zone-emoji">' + tEmoji + "</span>" : "") + "</h3>" +
     '<p class="report-date">' + escapeHtml(meta.dateLabel || t("generatedOn")) + " " + escapeHtml(meta.date || "") + "</p>" +
     summaryHtml(logs) +
     reportRowsHtml(logs)
@@ -905,7 +918,19 @@ async function exportReportPdf(logs, meta) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
   doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
-  doc.text(truncate(title, CW, 20), ML, y);
+  var titleTxt = truncate(title, CW - 12, 20);
+  doc.text(titleTxt, ML, y);
+  var titleW = doc.getTextWidth(titleTxt);
+  var tEval = totalPass + totalNoPass;
+  var dotCol = GREY_TXT;
+  if (tEval > 0) {
+    var tRate = (totalPass / tEval) * 100;
+    if (tRate >= passThreshold) dotCol = GREEN_TXT;
+    else if (tRate >= passThreshold - 20) dotCol = [200, 150, 0];
+    else dotCol = RED_TXT;
+  }
+  doc.setFillColor(dotCol[0], dotCol[1], dotCol[2]);
+  doc.circle(ML + titleW + 5, y - 2, 2.5, "F");
   y += 10;
 
   // Meta box
