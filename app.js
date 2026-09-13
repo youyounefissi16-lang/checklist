@@ -737,8 +737,22 @@ function reportRowsHtml(logs) {
   });
   var html = '<div class="report-list">';
   groupOrder.forEach(function (zoneName) {
+    var items = groups[zoneName];
+    var zPass = 0, zFail = 0;
+    items.forEach(function (item) {
+      if (item.status === "pass") zPass++;
+      else if (item.status === "no_pass") zFail++;
+    });
+    var zEval = zPass + zFail;
+    var zEmoji = "";
+    if (zEval > 0) {
+      var zRate = (zPass / zEval) * 100;
+      if (zRate >= passThreshold) zEmoji = "\uD83D\uDE0A";
+      else if (zRate >= passThreshold - 20) zEmoji = "\uD83D\uDE10";
+      else zEmoji = "\uD83D\uDE21";
+    }
     html += '<div class="report-zone-group">';
-    html += '<div class="report-zone-header">' + t("zone") + " " + escapeHtml(zoneName) + "</div>";
+    html += '<div class="report-zone-header">' + t("zone") + " " + escapeHtml(zoneName) + (zEmoji ? ' <span class="report-zone-emoji">' + zEmoji + "</span>" : "") + "</div>";
     html += '<div class="report-zone-items">';
     groups[zoneName].forEach(function (log) {
       var statusColor = log.status === "pass"
@@ -1041,11 +1055,19 @@ async function exportReportPdf(logs, meta) {
       lastZone = log.zoneName;
       var zk = log.zoneName || t("zone");
       ensure(14);
-      doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
+      var zh = stats[zk];
+      var zp = zonePct(zh);
+      var zbarCol;
+      if (zp === null) zbarCol = SOFT_GREY;
+      else if (zp >= passThreshold) zbarCol = SOFT_GREEN;
+      else if (zp >= passThreshold - 20) zbarCol = [255, 193, 7];
+      else zbarCol = SOFT_RED;
+      doc.setFillColor(zbarCol[0], zbarCol[1], zbarCol[2]);
       doc.roundedRect(ML, y - 4.5, CW, 8, 1.5, 1.5, "F");
+      var zbarTxtCol = (zp !== null && zp < passThreshold - 20) ? [255, 255, 255] : (zbarCol === SOFT_GREY ? NAVY : [30, 30, 30]);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(zbarTxtCol[0], zbarTxtCol[1], zbarTxtCol[2]);
       doc.text(truncate(log.zoneName, CW - 40, 10), ML + 3, y + 0.6);
       // Icon-forward counts: ✓ pass  ✗ no-pass (right-aligned)
       var zh = stats[zk];
@@ -1058,7 +1080,7 @@ async function exportReportPdf(logs, meta) {
       var zgwX = doc.getTextWidth(MARK.no_pass);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(zbarTxtCol[0], zbarTxtCol[1], zbarTxtCol[2]);
       var zw1 = doc.getTextWidth(zPassN), zw2 = doc.getTextWidth(zNoPassN);
       var ztotal = zgwP + 1 + zw1 + 3 + zgwX + 1 + zw2;
       var zx = W - MR - 3 - ztotal;
@@ -1069,7 +1091,7 @@ async function exportReportPdf(logs, meta) {
       zx += zgwP + 1;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(zbarTxtCol[0], zbarTxtCol[1], zbarTxtCol[2]);
       doc.text(zPassN, zx, y + 0.6);
       zx += zw1 + 3;
       doc.setFont("zapfdingbats", "normal");
@@ -1079,7 +1101,7 @@ async function exportReportPdf(logs, meta) {
       zx += zgwX + 1;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(zbarTxtCol[0], zbarTxtCol[1], zbarTxtCol[2]);
       doc.text(zNoPassN, zx, y + 0.6);
       y += 8;
     }

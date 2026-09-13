@@ -406,6 +406,7 @@ body {
   margin-bottom: clamp(8px, 1vw, 12px);
   border-bottom: 1px solid var(--border);
 }
+.report-zone-emoji { font-size: 1.1em; margin-left: 4px; }
 .report-zone-items { display: flex; flex-direction: column; gap: clamp(8px, 1vw, 12px); }
 .report-row {
   border: 1px solid var(--border);
