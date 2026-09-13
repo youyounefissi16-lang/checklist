@@ -347,9 +347,73 @@ function selectSectionColor(itemId, color) {
   var picker = document.querySelector(".section-color-picker[data-item='" + itemId + "']");
   if (!picker) return;
   var btns = picker.querySelectorAll(".section-color-btn");
-  for (var i = 0; i < btns.length; i++) btns[i].classList.remove("active");
-  var active = picker.querySelector(".section-color-btn[data-color='" + color + "']");
-  if (active) active.classList.add("active");
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle("active", btns[i].getAttribute("data-color") === color);
+  }
+}
+
+function getAllUniqueSections() {
+  var seen = {};
+  var result = [];
+  zones.forEach(function (z) {
+    z.items.forEach(function (item) {
+      (item.tags || []).forEach(function (tag) {
+        if (!seen[tag.name]) {
+          seen[tag.name] = true;
+          result.push({ name: tag.name, color: tag.color || "#666" });
+        }
+      });
+    });
+  });
+  return result;
+}
+
+function showSectionPicker(btn, zoneId, itemId) {
+  closeSectionPicker();
+  var sections = getAllUniqueSections();
+  var picker = document.createElement("div");
+  picker.className = "section-picker-dropdown";
+  picker.id = "section-picker-active";
+  if (!sections.length) {
+    picker.innerHTML = '<div class="section-picker-empty">' + t("globalSectionNoSections") + '</div>';
+  } else {
+    picker.innerHTML = sections.map(function (s) {
+      return '<button class="section-picker-item" onclick="assignSectionToItem(\'' + zoneId + "','" + itemId + "','" + escapeHtml(s.name).replace(/'/g, "\\'") + "')\">" +
+        '<span class="section-picker-dot" style="background:' + escapeHtml(s.color) + '"></span>' +
+        escapeHtml(s.name) +
+      '</button>';
+    }).join("");
+  }
+  btn.parentElement.appendChild(picker);
+  setTimeout(function () { document.addEventListener("click", closeSectionPickerOnClick, { once: true }); }, 0);
+}
+
+function closeSectionPicker() {
+  var existing = document.getElementById("section-picker-active");
+  if (existing) existing.remove();
+}
+
+function closeSectionPickerOnClick(e) {
+  var picker = document.getElementById("section-picker-active");
+  if (picker && !picker.contains(e.target) && !e.target.classList.contains("section-add-btn")) {
+    picker.remove();
+  }
+}
+
+function assignSectionToItem(zoneId, itemId, sectionName) {
+  var zone = zones.find(function (z) { return z.zoneId === zoneId; });
+  if (!zone) return;
+  var item = zone.items.find(function (it) { return it.id === itemId; });
+  if (!item) return;
+  if (!item.tags) item.tags = [];
+  var existing = getAllUniqueSections();
+  var section = existing.find(function (s) { return s.name === sectionName; });
+  if (!section) return;
+  var alreadyHas = item.tags.some(function (t) { return t.name === sectionName; });
+  if (alreadyHas) { closeSectionPicker(); return; }
+  item.tags.push({ name: section.name, color: section.color });
+  persist();
+  render();
 }
 
 function sectionBadgesHtml(tags) {
@@ -1832,6 +1896,9 @@ function render() {
                           '<button class="section-badge-x" onclick="removeSectionFromItem(\'' + zone.zoneId + "','" + item.id + "'," + ti + ")\">&times;</button></span>";
                       }).join("") + "</div>"
                     : "") +
+                  '<div class="section-picker-wrap">' +
+                    '<button class="btn btn-light btn-sm section-add-btn" onclick="showSectionPicker(this, \'' + zone.zoneId + '\', \'' + item.id + '\')">' + ic("plus") + t("addSectionBtn") + '</button>' +
+                  '</div>' +
                 "</li>"
               );
               }).join("") + "</ul>";
