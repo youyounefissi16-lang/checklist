@@ -1832,15 +1832,6 @@ function render() {
                           '<button class="section-badge-x" onclick="removeSectionFromItem(\'' + zone.zoneId + "','" + item.id + "'," + ti + ")\">&times;</button></span>";
                       }).join("") + "</div>"
                     : "") +
-                  '<div class="section-add-row">' +
-                    '<input id="section-name-' + item.id + '" class="text-input section-name-input" type="text" placeholder="' + t("sectionName") + '">' +
-                    '<div class="section-color-picker" data-item="' + item.id + '">' +
-                      SECTION_COLORS.map(function (c) {
-                        return '<button class="section-color-btn' + (c === SECTION_COLORS[0] ? " active" : "") + '" data-color="' + c + '" style="background:' + c + '" onclick="selectSectionColor(\'' + item.id + "','" + c + "')\"></button>";
-                      }).join("") +
-                    '</div>' +
-                    '<button class="btn btn-light btn-sm" onclick="addSectionToItem(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("plus") + t("addSection") + "</button>" +
-                  "</div>" +
                 "</li>"
               );
               }).join("") + "</ul>";
@@ -2498,8 +2489,13 @@ function globalSectionManagerHtml() {
     h += '</div>';
   }
   h += '<div style="margin-top:16px">' +
-    '<div class="add-item-row">' +
-      '<input id="global-section-name-input" class="text-input" type="text" placeholder="' + t("sectionName") + '" style="max-width:160px">' +
+    '<div class="section-add-row">' +
+      '<input id="global-section-name-input" class="text-input section-name-input" type="text" placeholder="' + t("sectionName") + '">' +
+      '<div class="section-color-picker" id="global-section-color-picker">' +
+        SECTION_COLORS.map(function (c, i) {
+          return '<button class="section-color-btn' + (i === 0 ? " active" : "") + '" data-color="' + c + '" style="background:' + c + '" onclick="selectGlobalSectionColor(\'' + c + "')\"></button>";
+        }).join("") +
+      '</div>' +
       '<button class="btn btn-light btn-sm" onclick="createGlobalSectionFromInput()">' + ic("plus") + t("globalSectionCreateBtn") + '</button>' +
     '</div></div>';
   h += '</div>';
@@ -2534,12 +2530,22 @@ function deleteGlobalSectionConfirm(tagName) {
   });
 }
 
+function selectGlobalSectionColor(color) {
+  var picker = document.getElementById("global-section-color-picker");
+  if (!picker) return;
+  var btns = picker.querySelectorAll(".section-color-btn");
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle("active", btns[i].getAttribute("data-color") === color);
+  }
+}
+
 function createGlobalSectionFromInput() {
   var input = document.getElementById("global-section-name-input");
   var name = (input ? input.value : "").trim();
   if (!name) return;
-  var colors = ["#E53935","#FB8C00","#FDD835","#43A047","#1E88E5","#8E24AA","#5C6BC0","#795548"];
-  var color = colors[Math.floor(Math.random() * colors.length)];
+  var picker = document.getElementById("global-section-color-picker");
+  var activeBtn = picker ? picker.querySelector(".section-color-btn.active") : null;
+  var color = activeBtn ? activeBtn.getAttribute("data-color") : SECTION_COLORS[0];
   zones.forEach(function (z) {
     if (z.items.length) {
       var item = z.items[0];
