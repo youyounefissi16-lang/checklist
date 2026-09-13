@@ -396,7 +396,17 @@ body {
 .session-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: clamp(10px, 1.4vw, 14px) 0; }
 .report-heading { color: var(--teal); border-bottom: 2px solid var(--teal); padding-bottom: 8px; margin-top: 0; font-size: clamp(17px, 0.6vw + 17px, 22px); }
 .report-date { font-size: clamp(12px, 0.2vw + 12px, 13.5px); color: var(--muted); }
-.report-list { display: flex; flex-direction: column; gap: clamp(8px, 1.2vw, 12px); margin-top: clamp(12px, 1.8vw, 18px); }
+.report-list { display: flex; flex-direction: column; gap: clamp(12px, 1.6vw, 18px); margin-top: clamp(12px, 1.8vw, 18px); }
+.report-zone-group { margin-bottom: 4px; }
+.report-zone-header {
+  font-size: clamp(13px, 0.3vw + 13px, 15px);
+  color: var(--info);
+  font-weight: 700;
+  padding-bottom: 6px;
+  margin-bottom: clamp(8px, 1vw, 12px);
+  border-bottom: 1px solid var(--border);
+}
+.report-zone-items { display: flex; flex-direction: column; gap: clamp(8px, 1vw, 12px); }
 .report-row {
   border: 1px solid var(--border);
   padding: clamp(10px, 1.5vw, 16px);
@@ -408,10 +418,10 @@ body {
   gap: clamp(8px, 1.2vw, 12px);
   flex-wrap: wrap;
 }
-.report-zone { font-size: clamp(12px, 0.2vw + 12px, 13.5px); color: var(--info); font-weight: bold; margin-bottom: 2px; }
 .report-text { font-weight: 500; font-size: clamp(14px, 0.4vw + 14px, 16px); margin-bottom: 4px; }
 .report-note { margin-top: 6px; color: #444; font-style: italic; white-space: pre-wrap; word-break: break-word; }
 .report-meta { font-size: clamp(11px, 0.2vw + 11px, 12.5px); color: var(--muted); }
+.report-photos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .status-badge { padding: clamp(4px, 0.6vw, 7px) clamp(8px, 1vw, 12px); border-radius: 8px; font-size: clamp(12px, 0.3vw + 12px, 14px); font-weight: bold; white-space: nowrap; text-transform: uppercase; }
 
 /* ---- Data management ---- */

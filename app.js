@@ -728,31 +728,54 @@ function statusLabel(s) {
 
 function reportRowsHtml(logs) {
   if (logs.length === 0) return '<p class="muted">' + t("noCriteriaFound") + "</p>";
-  return '<div class="report-list">' + logs.map(function (log) {
-    const statusColor = log.status === "pass"
-      ? "background:#E5F3EA;color:#1B5E20;"
-      : log.status === "no_pass"
-        ? "background:#FDE9E7;color:#B03025;"
-        : "background:#EEF1F5;color:#44556B;";
-    const meta = log.checkedAt
-      ? t("evaluatedBy") + " <strong>" + escapeHtml(log.checkedBy) + "</strong> " + t("on") + " " + escapeHtml(log.checkedAt)
-      : t("notEvaluated");
-    const note = (log.note && String(log.note).trim())
-      ? '<div class="report-note note-' + ((log.noteColor === "green") ? "green" : "red") + '"><strong>' + t("noteLabel") + ":</strong> " + escapeHtml(log.note) + "</div>"
-      : "";
-    return (
-      '<div class="report-row">' +
-        "<div class=\"report-info\">" +
-          '<div class="report-zone">' + t("zone") + " " + escapeHtml(log.zoneName) + "</div>" +
-          '<div class="report-text">' + escapeHtml(log.text) + "</div>" +
-          sectionBadgesHtml(log.tags) +
-          '<div class="report-meta">' + meta + "</div>" +
-          note +
-        "</div>" +
-        "<div class=\"report-status\"><span class=\"status-badge\" style=\"" + statusColor + "\">" + escapeHtml(statusLabel(log.status)) + "</span></div>" +
-      "</div>"
-    );
-  }).join("") + "</div>";
+  var groups = {};
+  var groupOrder = [];
+  logs.forEach(function (log) {
+    var key = log.zoneName || "";
+    if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+    groups[key].push(log);
+  });
+  var html = '<div class="report-list">';
+  groupOrder.forEach(function (zoneName) {
+    html += '<div class="report-zone-group">';
+    html += '<div class="report-zone-header">' + t("zone") + " " + escapeHtml(zoneName) + "</div>";
+    html += '<div class="report-zone-items">';
+    groups[zoneName].forEach(function (log) {
+      var statusColor = log.status === "pass"
+        ? "background:#E5F3EA;color:#1B5E20;"
+        : log.status === "no_pass"
+          ? "background:#FDE9E7;color:#B03025;"
+          : "background:#EEF1F5;color:#44556B;";
+      var meta = log.checkedAt
+        ? t("evaluatedBy") + " <strong>" + escapeHtml(log.checkedBy) + "</strong> " + t("on") + " " + escapeHtml(log.checkedAt)
+        : t("notEvaluated");
+      var note = (log.note && String(log.note).trim())
+        ? '<div class="report-note note-' + ((log.noteColor === "green") ? "green" : "red") + '"><strong>' + t("noteLabel") + ":</strong> " + escapeHtml(log.note) + "</div>"
+        : "";
+      var photos = "";
+      if (log.photos && log.photos.length) {
+        photos = '<div class="report-photos">' + log.photos.map(function (pid) {
+          return '<div class="photo-thumb" onclick="viewPhoto(\'' + pid + '\')">' +
+            '<img data-photo-id="' + pid + '" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\'%3E%3Crect width=\'48\' height=\'48\' fill=\'%23F0F4F8\' rx=\'4\'/%3E%3Ctext x=\'24\' y=\'28\' text-anchor=\'middle\' fill=\'%2394A3B8\' font-size=\'16\'%3E%E2%80%A6%3C/text%3E%3C/svg%3E" alt="">' +
+          "</div>";
+        }).join("") + "</div>";
+      }
+      html +=
+        '<div class="report-row">' +
+          "<div class=\"report-info\">" +
+            '<div class="report-text">' + escapeHtml(log.text) + "</div>" +
+            sectionBadgesHtml(log.tags) +
+            '<div class="report-meta">' + meta + "</div>" +
+            note +
+            photos +
+          "</div>" +
+          "<div class=\"report-status\"><span class=\"status-badge\" style=\"" + statusColor + "\">" + escapeHtml(statusLabel(log.status)) + "</span></div>" +
+        "</div>";
+    });
+    html += "</div></div>";
+  });
+  html += "</div>";
+  return html;
 }
 
 function buildReportHtml(logs, meta) {
@@ -1255,6 +1278,7 @@ function toggleReport(id, btn) {
   if (!el) return;
   const hidden = el.classList.toggle("collapsed");
   btn.innerHTML = ic("eye") + (hidden ? t("viewReport") : t("hideReport"));
+  if (!hidden) loadPhotoThumbs();
 }
 
 // ---- Analytics helpers ----

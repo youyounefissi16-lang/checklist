@@ -2,7 +2,7 @@
 // sw.js  —  Service Worker for PWA offline support
 // Cache-version: bump to force cache update on new deployments
 // ---------------------------------------------------------------------------
-var CACHE_VERSION = "v21.6";
+var CACHE_VERSION = "v22.0";
 var CACHE_NAME = "checklist-audit-" + CACHE_VERSION;
 var CORE_ASSETS = [
   "/",
