@@ -27,6 +27,9 @@ let passThreshold = 80;
 let ncs = [];
 let ncSettings = { overdueDays: 7, recurrentThreshold: 3, defaultCorrectiveAction: "", autoCloseNCs: false };
 
+// Persistent global sections list (name + color)
+let globalSections = [];
+
 // Sub-view toggles
 let historySubView = "sessions"; // "sessions" | "ncs"
 let analyticsSubView = "inspections"; // "inspections" | "ncs"
@@ -45,7 +48,7 @@ async function refreshFolderInfo() {
 }
 
 function persist() {
-  Storage.saveState({ zones: zones, sessions: sessions, selectedZoneIds: selectedZoneIds, passThreshold: passThreshold, ncs: ncs, ncSettings: ncSettings });
+  Storage.saveState({ zones: zones, sessions: sessions, selectedZoneIds: selectedZoneIds, passThreshold: passThreshold, ncs: ncs, ncSettings: ncSettings, globalSections: globalSections });
 }
 
 const DB_FILE = "audit-data.json";
@@ -353,19 +356,7 @@ function selectSectionColor(itemId, color) {
 }
 
 function getAllUniqueSections() {
-  var seen = {};
-  var result = [];
-  zones.forEach(function (z) {
-    z.items.forEach(function (item) {
-      (item.tags || []).forEach(function (tag) {
-        if (!seen[tag.name]) {
-          seen[tag.name] = true;
-          result.push({ name: tag.name, color: tag.color || "#666" });
-        }
-      });
-    });
-  });
-  return result;
+  return globalSections.map(function (s) { return { name: s.name, color: s.color || "#666" }; });
 }
 
 function showSectionPicker(btn, zoneId, itemId) {
@@ -2594,12 +2585,14 @@ function ncSettingsHtml() {
 
 function getAllSectionsGlobal() {
   var tagMap = {};
+  globalSections.forEach(function (s) {
+    tagMap[s.name] = { name: s.name, color: s.color || "#666", count: 0 };
+  });
   zones.forEach(function (z) {
     z.items.forEach(function (item) {
       (item.tags || []).forEach(function (tag) {
-        var key = tag.name;
-        if (!tagMap[key]) tagMap[key] = { name: tag.name, color: tag.color || "#666", count: 0 };
-        tagMap[key].count++;
+        if (!tagMap[tag.name]) tagMap[tag.name] = { name: tag.name, color: tag.color || "#666", count: 0 };
+        tagMap[tag.name].count++;
       });
     });
   });
@@ -2643,6 +2636,7 @@ function globalSectionManagerHtml() {
 function renameGlobalSectionPrompt(oldName) {
   var newName = prompt(t("globalSectionRename") + ": " + oldName, oldName);
   if (!newName || newName === oldName) return;
+  globalSections.forEach(function (s) { if (s.name === oldName) s.name = newName; });
   zones.forEach(function (z) {
     z.items.forEach(function (item) {
       (item.tags || []).forEach(function (tag) {
@@ -2657,6 +2651,7 @@ function renameGlobalSectionPrompt(oldName) {
 
 function deleteGlobalSectionConfirm(tagName) {
   confirmDialog(t("globalSectionConfirmDelete"), function () {
+    globalSections = globalSections.filter(function (s) { return s.name !== tagName; });
     zones.forEach(function (z) {
       z.items.forEach(function (item) {
         item.tags = (item.tags || []).filter(function (tag) { return tag.name !== tagName; });
@@ -2684,13 +2679,8 @@ function createGlobalSectionFromInput() {
   var picker = document.getElementById("global-section-color-picker");
   var activeBtn = picker ? picker.querySelector(".section-color-btn.active") : null;
   var color = activeBtn ? activeBtn.getAttribute("data-color") : SECTION_COLORS[0];
-  zones.forEach(function (z) {
-    if (z.items.length) {
-      var item = z.items[0];
-      if (!item.tags) item.tags = [];
-      item.tags.push({ name: name, color: color });
-    }
-  });
+  if (globalSections.some(function (s) { return s.name === name; })) return;
+  globalSections.push({ name: name, color: color });
   persist();
   render();
   showToast(t("globalSectionCreated"));
@@ -2710,6 +2700,18 @@ function createGlobalSectionFromInput() {
       if (typeof data.passThreshold === "number") passThreshold = data.passThreshold;
       ncs = Array.isArray(data.ncs) ? data.ncs : [];
       ncSettings = data.ncSettings && typeof data.ncSettings === "object" ? data.ncSettings : {};
+      if (Array.isArray(data.globalSections)) {
+        globalSections = data.globalSections;
+      } else {
+        var seen = {};
+        zones.forEach(function (z) {
+          z.items.forEach(function (item) {
+            (item.tags || []).forEach(function (tag) {
+              if (!seen[tag.name]) { seen[tag.name] = true; globalSections.push({ name: tag.name, color: tag.color || "#666" }); }
+            });
+          });
+        });
+      }
     }
   } catch (e) {}
   try { await refreshFolderInfo(); } catch (e) {}
