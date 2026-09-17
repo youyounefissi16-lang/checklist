@@ -738,9 +738,9 @@ function reportRowsHtml(logs) {
     var zEmoji = "";
     if (zEval > 0) {
       var zRate = (zPass / zEval) * 100;
-      if (zRate >= passThreshold) zEmoji = "\uD83D\uDE0A";
-      else if (zRate >= passThreshold - 20) zEmoji = "\uD83D\uDE10";
-      else zEmoji = "\uD83D\uDE21";
+      if (zRate >= passThreshold) zEmoji = "\uD83D\uDE0A\uFE0F";
+      else if (zRate >= passThreshold - 20) zEmoji = "\uD83D\uDE10\uFE0F";
+      else zEmoji = "\uD83D\uDE21\uFE0F";
     }
     html += '<div class="report-zone-group">';
     html += '<div class="report-zone-header">' + t("zone") + " " + escapeHtml(zoneName) + (zEmoji ? ' <span class="report-zone-emoji">' + zEmoji + "</span>" : "") + "</div>";
@@ -793,9 +793,9 @@ function buildReportHtml(logs, meta) {
   var tEmoji = "";
   if (tEval > 0) {
     var tRate = (tPass / tEval) * 100;
-    if (tRate >= passThreshold) tEmoji = "\uD83D\uDE0A";
-    else if (tRate >= passThreshold - 20) tEmoji = "\uD83D\uDE10";
-    else tEmoji = "\uD83D\uDE21";
+    if (tRate >= passThreshold) tEmoji = "\uD83D\uDE0A\uFE0F";
+    else if (tRate >= passThreshold - 20) tEmoji = "\uD83D\uDE10\uFE0F";
+    else tEmoji = "\uD83D\uDE21\uFE0F";
   }
   return (
     '<h3 class="report-heading">' + escapeHtml(meta.title || t("reportTitle")) + (tEmoji ? ' <span class="report-zone-emoji">' + tEmoji + "</span>" : "") + "</h3>" +
@@ -885,6 +885,17 @@ async function exportReportPdf(logs, meta) {
     return curY;
   }
 
+  function emojiToDataUrl(emoji, px) {
+    var c = document.createElement("canvas");
+    c.width = px; c.height = px;
+    var ctx = c.getContext("2d");
+    ctx.font = px + "px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(emoji, px / 2, px / 2);
+    return c.toDataURL("PNG");
+  }
+
   // ---- Symbol glyphs + layout helpers -----------------------------------
   var PT = 0.3528; // point -> mm (jsPDF font sizes are in points)
   var MARK = { pass: "\u2713", no_pass: "\u2717", unchecked: "\u2500" };
@@ -913,15 +924,17 @@ async function exportReportPdf(logs, meta) {
   doc.text(titleTxt, ML, y);
   var titleW = doc.getTextWidth(titleTxt);
   var tEval = totalPass + totalNoPass;
-  var dotCol = GREY_TXT;
+  var tEmoji = "";
   if (tEval > 0) {
     var tRate = (totalPass / tEval) * 100;
-    if (tRate >= passThreshold) dotCol = GREEN_TXT;
-    else if (tRate >= passThreshold - 20) dotCol = [200, 150, 0];
-    else dotCol = RED_TXT;
+    if (tRate >= passThreshold) tEmoji = "\uD83D\uDE0A\uFE0F";
+    else if (tRate >= passThreshold - 20) tEmoji = "\uD83D\uDE10\uFE0F";
+    else tEmoji = "\uD83D\uDE21\uFE0F";
   }
-  doc.setFillColor(dotCol[0], dotCol[1], dotCol[2]);
-  doc.circle(ML + titleW + 5, y - 2, 2.5, "F");
+  if (tEmoji) {
+    var emojiUrl = emojiToDataUrl(tEmoji, 48);
+    doc.addImage(emojiUrl, "PNG", ML + titleW + 2, y - 6, 4.5, 4.5);
+  }
   y += 10;
 
   // Meta box
@@ -1015,6 +1028,12 @@ async function exportReportPdf(logs, meta) {
       doc.setFontSize(13);
       doc.setTextColor(col[0], col[1], col[2]);
       doc.text(pctTxt, W - MR - 4, y + 8.5, { align: "right" });
+      if (!neutral) {
+        var zEmojiChar = passed ? "\uD83D\uDE0A\uFE0F" : (p >= passThreshold - 20 ? "\uD83D\uDE10\uFE0F" : "\uD83D\uDE21\uFE0F");
+        var emojiUrl = emojiToDataUrl(zEmojiChar, 48);
+        var pctW = doc.getTextWidth(pctTxt);
+        doc.addImage(emojiUrl, "PNG", W - MR - 4 - pctW - 5.5, y + 4.5, 4, 4);
+      }
       // Status pill, right-aligned with the percentage, glyph inside
       var pillTxt = neutral ? t("notVerified") : (passed ? t("pass") : t("noPass"));
       var pillMark = MARK[neutral ? "unchecked" : (passed ? "pass" : "no_pass")];
