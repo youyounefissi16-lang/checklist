@@ -889,11 +889,11 @@ async function exportReportPdf(logs, meta) {
     var c = document.createElement("canvas");
     c.width = px; c.height = px;
     var ctx = c.getContext("2d");
-    ctx.font = px + "px serif";
+    ctx.font = "bold " + px + "px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(emoji, px / 2, px / 2);
-    return c.toDataURL("PNG");
+    return c;
   }
 
   // ---- Symbol glyphs + layout helpers -----------------------------------
@@ -932,8 +932,8 @@ async function exportReportPdf(logs, meta) {
     else tEmoji = "\uD83D\uDE21\uFE0F";
   }
   if (tEmoji) {
-    var emojiUrl = emojiToDataUrl(tEmoji, 48);
-    doc.addImage(emojiUrl, "PNG", ML + titleW + 2, y - 6, 4.5, 4.5);
+    var emojiCanvas = emojiToDataUrl(tEmoji, 96);
+    doc.addImage(emojiCanvas, "PNG", ML + titleW + 2, y - 7, 5, 5);
   }
   y += 10;
 
@@ -1030,9 +1030,9 @@ async function exportReportPdf(logs, meta) {
       doc.text(pctTxt, W - MR - 4, y + 8.5, { align: "right" });
       if (!neutral) {
         var zEmojiChar = passed ? "\uD83D\uDE0A\uFE0F" : (p >= passThreshold - 20 ? "\uD83D\uDE10\uFE0F" : "\uD83D\uDE21\uFE0F");
-        var emojiUrl = emojiToDataUrl(zEmojiChar, 48);
+        var emojiCanvas = emojiToDataUrl(zEmojiChar, 96);
         var pctW = doc.getTextWidth(pctTxt);
-        doc.addImage(emojiUrl, "PNG", W - MR - 4 - pctW - 5.5, y + 4.5, 4, 4);
+        doc.addImage(emojiCanvas, "PNG", W - MR - 4 - pctW - 6, y + 3.5, 5, 5);
       }
       // Status pill, right-aligned with the percentage, glyph inside
       var pillTxt = neutral ? t("notVerified") : (passed ? t("pass") : t("noPass"));
