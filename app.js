@@ -933,7 +933,7 @@ async function exportReportPdf(logs, meta) {
   }
   if (tEmoji) {
     var emojiCanvas = emojiToDataUrl(tEmoji, 96);
-    doc.addImage(emojiCanvas, "PNG", ML + titleW + 2, y - 7, 5, 5);
+    doc.addImage(emojiCanvas, "PNG", ML + titleW + 2, y - 9, 5, 5);
   }
   y += 10;
 
@@ -1032,7 +1032,7 @@ async function exportReportPdf(logs, meta) {
         var zEmojiChar = passed ? "\uD83D\uDE0A\uFE0F" : (p >= passThreshold - 20 ? "\uD83D\uDE10\uFE0F" : "\uD83D\uDE21\uFE0F");
         var emojiCanvas = emojiToDataUrl(zEmojiChar, 96);
         var pctW = doc.getTextWidth(pctTxt);
-        doc.addImage(emojiCanvas, "PNG", W - MR - 4 - pctW - 6, y + 3.5, 5, 5);
+        doc.addImage(emojiCanvas, "PNG", W - MR - 4 - pctW - 6, y + 1.5, 5, 5);
       }
       // Status pill, right-aligned with the percentage, glyph inside
       var pillTxt = neutral ? t("notVerified") : (passed ? t("pass") : t("noPass"));
