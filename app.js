@@ -449,8 +449,7 @@ function updateItemRowDom(zoneId, itemId, item) {
     metaEl.classList.toggle("muted", !item.checkedAt);
     metaEl.innerHTML = item.checkedAt
       ? t("evaluatedBy") + " <strong>" + escapeHtml(item.checkedBy) + "</strong> " + t("on") + " " + escapeHtml(item.checkedAt)
-      : t("pending");
-  }
+      : "";  }
 }
 
 // Save a note for an item (no re-render so the textarea keeps focus).
@@ -1807,7 +1806,7 @@ function render() {
                 : "background:#E9EEF3;color:#44556B;";
               const meta = item.checkedAt
                 ? '<div class="item-meta" id="meta-' + zone.zoneId + "-" + item.id + '">' + t("evaluatedBy") + " <strong>" + escapeHtml(item.checkedBy) + "</strong> " + t("on") + " " + escapeHtml(item.checkedAt) + "</div>"
-                : '<div class="item-meta muted" id="meta-' + zone.zoneId + "-" + item.id + '">' + t("pending") + "</div>";
+                : '<div class="item-meta muted" id="meta-' + zone.zoneId + "-" + item.id + '"></div>';
               const noteKey = zone.zoneId + ":" + item.id;
               const editing = editingNoteId === noteKey;
               const noteColor = noteColorOf(item);
