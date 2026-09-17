@@ -1574,6 +1574,32 @@ function exportAnalyticsPdf() {
       y = chartBottom + 10;
     }
 
+    function drawPieSlice(cx, cy, r, startDeg, endDeg, rgb) {
+      if (endDeg - startDeg >= 359.99) {
+        doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+        doc.circle(cx, cy, r, "F");
+        return;
+      }
+      var startRad = (startDeg - 90) * Math.PI / 180;
+      var endRad = (endDeg - 90) * Math.PI / 180;
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+      doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+      doc.setLineWidth(0.01);
+      var steps = Math.max(16, Math.round(Math.abs(endDeg - startDeg) / 5));
+      var pts = [];
+      for (var i = 0; i <= steps; i++) {
+        var a = startRad + (endRad - startRad) * (i / steps);
+        pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+      }
+      var lines = [];
+      lines.push([pts[0][0] - cx, pts[0][1] - cy]);
+      for (var j = 1; j < pts.length; j++) {
+        lines.push([pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]]);
+      }
+      lines.push([cx - pts[pts.length - 1][0], cy - pts[pts.length - 1][1]]);
+      doc.lines(lines, cx, cy, [1, 1], "F", false);
+    }
+
     drawHeaderBand();
 
     doc.setFont("helvetica", "bold");
@@ -1602,6 +1628,63 @@ function exportAnalyticsPdf() {
       if (!hasData) return;
       drawSectionChart(truncate(zn, CW, 11), zd, zSummary);
     });
+
+    var tagStats = computeSectionStats();
+    var sectionKeys = Object.keys(tagStats);
+    if (sectionKeys.length) {
+      ensure(14);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
+      doc.text("Pass rate by section", ML, y);
+      y += 8;
+
+      var colW = (CW - 8) / 2;
+      var donutR = 8;
+      for (var si = 0; si < sectionKeys.length; si++) {
+        var col = si % 2;
+        var sx = ML + col * (colW + 8);
+        if (col === 0 && si > 0) y += 30;
+        ensure(32);
+
+        var ts = tagStats[sectionKeys[si]];
+        var tTotal = ts.pass + ts.noPass + ts.unchecked;
+        var cx = sx + donutR + 2;
+        var cy = y;
+
+        if (tTotal === 0) {
+          doc.setFillColor(224, 228, 234);
+          doc.circle(cx, cy, donutR, "F");
+        } else {
+          var passAng = (ts.pass / tTotal) * 360;
+          var failAng = (ts.noPass / tTotal) * 360;
+          drawPieSlice(cx, cy, donutR, 0, passAng, [46, 125, 50]);
+          drawPieSlice(cx, cy, donutR, passAng, passAng + failAng, [192, 57, 43]);
+          drawPieSlice(cx, cy, donutR, passAng + failAng, 360, [224, 228, 234]);
+        }
+        doc.setFillColor(255, 255, 255);
+        doc.circle(cx, cy, donutR * 0.55, "F");
+
+        var passRate = tTotal > 0 && (ts.pass + ts.noPass) > 0 ? Math.round((ts.pass / (ts.pass + ts.noPass)) * 100) : 0;
+        var rateColor = passRate >= passThreshold ? [46, 125, 50] : (ts.pass + ts.noPass > 0 ? [192, 57, 43] : [140, 140, 140]);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(rateColor[0], rateColor[1], rateColor[2]);
+        doc.text(passRate + "%", cx, cy + 1.2, { align: "center" });
+
+        var tx = sx + donutR * 2 + 6;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(60);
+        doc.text(ts.name, tx, y - 3);
+
+        doc.setFontSize(7);
+        doc.setTextColor(46, 125, 50); doc.text("Pass: " + ts.pass, tx, y + 1);
+        doc.setTextColor(192, 57, 43); doc.text("No Pass: " + ts.noPass, tx, y + 5);
+        doc.setTextColor(140); doc.text("Unchecked: " + ts.unchecked, tx, y + 9);
+      }
+      y += 30;
+    }
 
     var total = doc.internal.getNumberOfPages();
     for (var pg = 1; pg <= total; pg++) {
