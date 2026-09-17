@@ -1475,6 +1475,7 @@ function analyticsViewHtml() {
     '</div>';
   });
 
+  content += sectionDonutsHtml();
   return content;
 }
 
