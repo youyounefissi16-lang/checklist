@@ -887,12 +887,14 @@ async function exportReportPdf(logs, meta) {
 
   function emojiToDataUrl(emoji, px) {
     var c = document.createElement("canvas");
-    c.width = px; c.height = px;
+    var pad = Math.round(px * 0.35);
+    c.width = px;
+    c.height = px + pad;
     var ctx = c.getContext("2d");
     ctx.font = "bold " + px + "px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji, px / 2, px / 2);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(emoji, px / 2, px - 4);
     return c;
   }
 
@@ -933,7 +935,7 @@ async function exportReportPdf(logs, meta) {
   }
   if (tEmoji) {
     var emojiCanvas = emojiToDataUrl(tEmoji, 96);
-    doc.addImage(emojiCanvas, "PNG", ML + titleW + 2, y - 5, 5, 5);
+    doc.addImage(emojiCanvas, "PNG", ML + titleW + 2, y - 5, 5, 6.75);
   }
   y += 10;
 
@@ -1032,7 +1034,7 @@ async function exportReportPdf(logs, meta) {
         var zEmojiChar = passed ? "\uD83D\uDE0A\uFE0F" : (p >= passThreshold - 20 ? "\uD83D\uDE10\uFE0F" : "\uD83D\uDE21\uFE0F");
         var emojiCanvas = emojiToDataUrl(zEmojiChar, 96);
         var pctW = doc.getTextWidth(pctTxt);
-        doc.addImage(emojiCanvas, "PNG", W - MR - 4 - pctW - 6, y + 4, 5, 5);
+        doc.addImage(emojiCanvas, "PNG", W - MR - 4 - pctW - 6, y + 4, 5, 6.75);
       }
       // Status pill, right-aligned with the percentage, glyph inside
       var pillTxt = neutral ? t("notVerified") : (passed ? t("pass") : t("noPass"));
