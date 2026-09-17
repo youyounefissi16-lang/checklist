@@ -1827,19 +1827,19 @@ function render() {
                       '<button class="note-color-dot ' + noteColor + '" title="' + (noteColor === "red" ? t("noteColorGreen") : t("noteColorRed")) + '" onclick="setNoteColor(\'' + zone.zoneId + "','" + item.id + "','" + (noteColor === "red" ? "green" : "red") + "')\" aria-label=\"" + t("noteLabel") + "\"></button>" +
                       '<span class="note-text">' + escapeHtml(item.note) + '</span><button class="btn btn-light btn-sm" onclick="editNote(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("pencil") + t("edit") + "</button>" +
                     "</div>"
-                  : '<button class="btn btn-light btn-sm" onclick="editNote(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("note") + t("addNote") + "</button>");
+                  : '<button class="btn btn-light btn-sm" title="' + t("addNote") + '" onclick="editNote(\'' + zone.zoneId + "','" + item.id + "')\">" + ic("note") + "</button>");
               return (
                 '<li class="item-row" id="row-' + zone.zoneId + "-" + item.id + '">' +
                   '<div class="item-text">' + escapeHtml(item.text) + "</div>" +
                   sectionBadgesHtml(item.tags) +
                   '<div class="item-actions">' +
-                    "<button class=\"status-btn\" data-st=\"pass\" style=\"" + passStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','pass')\">" + ic("check") + t("pass") + "</button>" +
-                    "<button class=\"status-btn\" data-st=\"no_pass\" style=\"" + noPassStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','no_pass')\">" + ic("x") + t("noPass") + "</button>" +
-                    "<button class=\"status-btn\" data-st=\"unchecked\" style=\"" + ncStyle + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','unchecked')\">" + ic("minus") + t("notChecked") + "</button>" +
+                    "<button class=\"status-btn\" data-st=\"pass\" style=\"" + passStyle + "\" title=\"" + t("pass") + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','pass')\">" + ic("check") + "</button>" +
+                    "<button class=\"status-btn\" data-st=\"no_pass\" style=\"" + noPassStyle + "\" title=\"" + t("noPass") + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','no_pass')\">" + ic("x") + "</button>" +
+                    "<button class=\"status-btn\" data-st=\"unchecked\" style=\"" + ncStyle + "\" title=\"" + t("notChecked") + "\" onclick=\"setStatus('" + zone.zoneId + "','" + item.id + "','unchecked')\">" + ic("minus") + "</button>" +
                   "</div>" +
                   noteBlock +
                   photosHtml(zone.zoneId, item.id, item.photos) +
-                  '<button class="photo-add-btn" onclick="capturePhoto(\'' + zone.zoneId + '\',\'' + item.id + "')\">" + ic("camera") + " " + t("addPhoto") + "</button>" +
+                  '<button class="photo-add-btn" title="' + t("addPhoto") + '" onclick="capturePhoto(\'' + zone.zoneId + '\',\'' + item.id + "')\">" + ic("camera") + "</button>" +
                   meta +
                 "</li>"
               );

@@ -172,7 +172,7 @@ body {
 /* ---- Inline SVG icons ---- */
 .svg-ic { display: inline-flex; align-items: center; vertical-align: -2px; }
 .svg-ic svg { display: block; width: 16px; height: 16px; }
-.btn .svg-ic, .status-btn .svg-ic { margin-right: 6px; }
+.btn .svg-ic, .status-btn .svg-ic, .photo-add-btn .svg-ic { margin-right: 0; }
 .btn-sm .svg-ic svg, .status-btn .svg-ic svg { width: 14px; height: 14px; }
 .nav-item .svg-ic { margin-right: 4px; }
 .app-brand .svg-ic { margin-right: 7px; }
@@ -194,6 +194,9 @@ body {
 *:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 .status-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: clamp(7px, 1vw, 11px) clamp(10px, 1.4vw, 15px);
   border: none;
   border-radius: 8px;
@@ -305,7 +308,7 @@ body {
 
 /* Inspection-specific */
 .item-actions { display: flex; gap: clamp(6px, 1vw, 10px); flex-wrap: wrap; }
-.item-actions .status-btn { flex: 1 1 auto; min-width: 90px; }
+.item-actions .status-btn { flex: 0 1 auto; min-width: 44px; justify-content: center; }
 .item-meta { flex: 1 1 100%; font-size: clamp(11px, 0.2vw + 11px, 12.5px); color: var(--muted); margin-top: 6px; }
 .note-input { width: 100%; margin-top: 6px; min-height: clamp(48px, 6vw, 72px); padding: clamp(7px, 0.9vw, 10px) clamp(9px, 1vw, 12px); border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: clamp(13px, 0.3vw + 13px, 15px); color: var(--body); background: #fff; resize: vertical; box-sizing: border-box; }
 .note-input:focus { outline: none; border-color: var(--info); box-shadow: 0 0 0 3px var(--focus); }
@@ -1054,14 +1057,14 @@ body {
 .photo-add-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
   font-size: 12px;
   font-weight: 600;
   color: var(--teal);
   background: #E8F0F8;
   border: 1px dashed #9FB6CC;
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 6px 10px;
   cursor: pointer;
   margin-top: 8px;
   transition: background 0.12s ease, transform 0.1s ease;
