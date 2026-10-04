@@ -11,6 +11,7 @@ let zones = [];
 let sessions = [];
 let selectedZoneIds = [];   // zones included in the active inspection
 let inspectionPicking = false; // transient UI flag: show the zone picker
+let editingSessionId = null; // session id being edited (null = new inspection)
 
 // Inline-edit trackers (settings view)
 let editingZoneId = null;
@@ -48,7 +49,7 @@ async function refreshFolderInfo() {
 }
 
 function persist() {
-  Storage.saveState({ zones: zones, sessions: sessions, selectedZoneIds: selectedZoneIds, passThreshold: passThreshold, ncs: ncs, ncSettings: ncSettings, globalSections: globalSections });
+  Storage.saveState({ zones: zones, sessions: sessions, selectedZoneIds: selectedZoneIds, passThreshold: passThreshold, ncs: ncs, ncSettings: ncSettings, globalSections: globalSections, editingSessionId: editingSessionId });
 }
 
 const DB_FILE = "audit-data.json";
@@ -222,6 +223,52 @@ function confirmDialog(message, onYes) {
   });
   overlay.querySelector("#modal-ok").focus();
   overlay.querySelector("#modal-cancel").addEventListener("click", close);
+}
+
+// Multi-choice modal: buttons = [{label, className, value}]; onPick(value) — null on cancel/dismiss
+function choiceDialog(message, buttons, onPick) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML =
+    '<div class="modal" role="dialog" aria-modal="true">' +
+      '<p class="modal-message">' + escapeHtml(message) + "</p>" +
+      '<div class="modal-actions modal-actions-col">' +
+        buttons.map(function (b, i) {
+          return '<button class="btn ' + (b.className || "btn-light") + '" data-choice="' + i + '">' + escapeHtml(b.label) + "</button>";
+        }).join("") +
+        '<button class="btn btn-light" data-choice="cancel">' + t("cancel") + "</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(overlay);
+  function done(val) {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+    onPick(val);
+  }
+  function onKey(e) {
+    if (e.key === "Escape") done(null);
+  }
+  document.addEventListener("keydown", onKey);
+  overlay.addEventListener("click", function (e) {
+    if (e.target === overlay) done(null);
+  });
+  overlay.querySelectorAll("[data-choice]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var c = btn.getAttribute("data-choice");
+      if (c === "cancel") { done(null); return; }
+      done(buttons[parseInt(c, 10)].value);
+    });
+  });
+}
+
+// True when the active inspection form holds unsaved work
+function hasUnfinishedInspection() {
+  if (!selectedZoneIds.length) return false;
+  return selectedZones().some(function (z) {
+    return z.items.some(function (i) {
+      return i.status !== "unchecked" || (i.note && i.note.trim()) || (i.photos && i.photos.length);
+    });
+  });
 }
 
 // ---- SETTINGS: structure CRUD ----
@@ -544,7 +591,8 @@ function importFile(input) {
       .then(function (data) {
         zones = data.zones || [];
         sessions = Array.isArray(data.sessions) ? data.sessions : [];
-        selectedZoneIds = Array.isArray(data.selectedZoneIds) ? data.selectedZoneIds : [];
+      selectedZoneIds = Array.isArray(data.selectedZoneIds) ? data.selectedZoneIds : [];
+      editingSessionId = typeof data.editingSessionId === "string" ? data.editingSessionId : null;
         ncs = Array.isArray(data.ncs) ? data.ncs : [];
         ncSettings = data.ncSettings && typeof data.ncSettings === "object" ? data.ncSettings : {};
         editingZoneId = null;
@@ -624,6 +672,7 @@ function saveProgress() {
 }
 
 function finishInspection() {
+  var wasEditing = !!editingSessionId;
   const items = [];
   selectedZones().forEach(function (z) {
     z.items.forEach(function (i) {
@@ -641,13 +690,41 @@ function finishInspection() {
       });
     });
   });
-  sessions.push({
-    id: "sess-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
-    finishedAt: new Date().toISOString(),
-    status: "completed",
-    inspector: currentUser,
-    items: items
-  });
+  var savedSession;
+  if (editingSessionId) {
+    // Editing an existing session: replace it in place (keep id, refresh content)
+    savedSession = null;
+    for (var si = 0; si < sessions.length; si++) {
+      if (sessions[si].id === editingSessionId) { savedSession = sessions[si]; break; }
+    }
+    if (savedSession) {
+      savedSession.finishedAt = new Date().toISOString();
+      savedSession.status = "completed";
+      savedSession.inspector = currentUser;
+      savedSession.items = items;
+      // Drop NCs generated from the old version; they are regenerated below
+      ncs = ncs.filter(function (nc) { return nc.sessionId !== editingSessionId; });
+    } else {
+      savedSession = {
+        id: editingSessionId,
+        finishedAt: new Date().toISOString(),
+        status: "completed",
+        inspector: currentUser,
+        items: items
+      };
+      sessions.push(savedSession);
+    }
+    editingSessionId = null;
+  } else {
+    savedSession = {
+      id: "sess-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+      finishedAt: new Date().toISOString(),
+      status: "completed",
+      inspector: currentUser,
+      items: items
+    };
+    sessions.push(savedSession);
+  }
   // The snapshot is safely saved in history; clear the in-progress form so a
   // second click can't create a duplicate session (lossless reset here).
   selectedZones().forEach(function (z) {
@@ -662,9 +739,10 @@ function finishInspection() {
   });
   selectedZoneIds = [];
   inspectionPicking = false;
+  editingSessionId = null;
   persist();
-  createNcsFromSession(sessions[sessions.length - 1]);
-  showToast(t("sessionSaved"));
+  createNcsFromSession(savedSession);
+  showToast(t(wasEditing ? "sessionUpdated" : "sessionSaved"));
   navigate('historique');
 }
 
@@ -684,6 +762,26 @@ function startInspectionFromPicker() {
     if (boxes[i].checked) checked.push(boxes[i].value);
   }
   if (!checked.length) { showToast(t("noZonesSelected")); return; }
+  var sameSelection = checked.length === selectedZoneIds.length &&
+    checked.every(function (id) { return selectedZoneIds.indexOf(id) !== -1; });
+  if (hasUnfinishedInspection() && !sameSelection) {
+    choiceDialog(t("unfinishedInspection"), [
+      { label: t("continueEditing"), className: "btn-primary", value: "continue" },
+      { label: t("discardStartNew"), className: "btn-danger", value: "discard" }
+    ], function (pick) {
+      if (pick === "discard") {
+        editingSessionId = null;
+        applyZonePick(checked);
+      } else {
+        inspectionPicking = false;
+        render();
+      }
+    });
+    return;
+  }
+  applyZonePick(checked);
+}
+function applyZonePick(checked) {
   var removedIds = selectedZoneIds.filter(function (id) { return checked.indexOf(id) === -1; });
   removedIds.forEach(function (id) {
     var zone = zones.find(function (z) { return z.zoneId === id; });
@@ -752,7 +850,7 @@ function reportRowsHtml(logs) {
           : "background:#EEF1F5;color:#44556B;";
       var meta = log.checkedAt
         ? t("evaluatedBy") + " <strong>" + escapeHtml(log.checkedBy) + "</strong> " + t("on") + " " + escapeHtml(log.checkedAt)
-        : t("notEvaluated");
+        : "";
       var note = (log.note && String(log.note).trim())
         ? '<div class="report-note note-' + ((log.noteColor === "green") ? "green" : "red") + '"><strong>' + t("noteLabel") + ":</strong> " + escapeHtml(log.note) + "</div>"
         : "";
@@ -1230,9 +1328,8 @@ async function exportReportPdf(logs, meta) {
     doc.setTextColor(110);
     var metaText = log.checkedAt
       ? t("evaluatedBy") + " " + (log.checkedBy || "") + " " + t("on") + " " + log.checkedAt
-      : t("notEvaluated");
-    doc.text(metaText, ML + 6, y);
-    y += 4;
+      : "";
+    if (metaText) { doc.text(metaText, ML + 6, y); y += 4; }
 
     if (log.note && String(log.note).trim()) {
       var nr = NOTE_RGB[(log.noteColor === "green") ? "green" : "red"];
@@ -1335,6 +1432,55 @@ function deleteSession(id) {
     render();
     showToast(t("sessionDeleted"));
   });
+}
+
+// Reopen a finished session for editing (mostly to add/remove zones):
+// restores its answers into the live form and opens the zone picker.
+function editSession(id) {
+  var s = sessions.find(function (x) { return x.id === id; });
+  if (!s) return;
+  function beginEdit() {
+    var matchedIds = [];
+    (s.items || []).forEach(function (log) {
+      var zone = null;
+      for (var zi = 0; zi < zones.length; zi++) {
+        if (zones[zi].zoneName === log.zoneName) { zone = zones[zi]; break; }
+      }
+      if (!zone) return;
+      if (matchedIds.indexOf(zone.zoneId) === -1) matchedIds.push(zone.zoneId);
+      for (var ii = 0; ii < zone.items.length; ii++) {
+        if (zone.items[ii].text === log.text) {
+          var it = zone.items[ii];
+          it.status = log.status || "unchecked";
+          it.checkedBy = log.checkedBy || null;
+          it.checkedAt = log.checkedAt || null;
+          it.note = log.note || "";
+          it.noteColor = log.noteColor || "red";
+          it.photos = Array.isArray(log.photos) ? log.photos.slice() : [];
+          break;
+        }
+      }
+    });
+    if (!matchedIds.length) { showToast(t("noZonesSelected")); return; }
+    selectedZoneIds = matchedIds;
+    editingSessionId = id;
+    inspectionPicking = true;
+    persist();
+    navigate("inspection");
+  }
+  if (hasUnfinishedInspection()) {
+    choiceDialog(t("unfinishedInspection"), [
+      { label: t("continueEditing"), className: "btn-primary", value: "continue" },
+      { label: t("discardStartNew"), className: "btn-danger", value: "discard" }
+    ], function (pick) {
+      if (pick === "discard") {
+        editingSessionId = null;
+        beginEdit();
+      }
+    });
+  } else {
+    beginEdit();
+  }
 }
 
 function clearHistory() {
@@ -1994,6 +2140,7 @@ function render() {
             "</div>" +
             '<div class="session-actions">' +
               '<button class="btn btn-light btn-sm" onclick="toggleReport(\'' + id + '\', this)">' + ic("eye") + t("viewReport") + "</button>" +
+              '<button class="btn btn-light btn-sm" onclick="editSession(\'' + s.id + '\')">' + ic("pencil") + t("edit") + "</button>" +
               '<button class="btn btn-primary btn-sm" onclick="exportSessionPDF(\'' + s.id + '\')">' + ic("download") + t("exportPDF") + "</button>" +
               '<button class="btn btn-danger btn-sm" onclick="deleteSession(\'' + s.id + '\')">' + ic("trash") + t("delete") + "</button>" +
             "</div>" +
@@ -2313,14 +2460,25 @@ function deletePhoto(zoneId, itemId, photoId) {
   showToast(t("photoDeleted"));
 }
 
-async function viewPhoto(photoId) {
+async function viewPhoto(photoId, zoneId, itemId) {
   var data = await Storage.getPhoto(photoId);
   if (!data) return;
   viewingPhotoData = data;
   var overlay = document.createElement("div");
   overlay.className = "photo-viewer-overlay";
   overlay.onclick = function () { overlay.remove(); viewingPhotoData = null; };
-  overlay.innerHTML = '<button class="photo-viewer-close">&times;</button><img src="' + data + '" alt="Photo">';
+  overlay.innerHTML = '<button class="photo-viewer-close">&times;</button><img src="' + data + '" alt="Photo">' +
+    (zoneId && itemId ? '<button class="photo-viewer-delete">' + ic("trash") + t("deletePhoto") + "</button>" : "");
+  if (zoneId && itemId) {
+    overlay.querySelector(".photo-viewer-delete").onclick = function (e) {
+      e.stopPropagation();
+      confirmDialog(t("confirmDeletePhoto"), function () {
+        overlay.remove();
+        viewingPhotoData = null;
+        deletePhoto(zoneId, itemId, photoId);
+      });
+    };
+  }
   document.body.appendChild(overlay);
 }
 
@@ -2328,7 +2486,7 @@ function photosHtml(zoneId, itemId, photos) {
   if (!photos || !photos.length) return "";
   var h = '<div class="photo-thumbs">';
   photos.forEach(function (pid) {
-    h += '<div class="photo-thumb" onclick="viewPhoto(\'' + pid + '\')">' +
+    h += '<div class="photo-thumb" onclick="viewPhoto(\'' + pid + '\',\'' + zoneId + '\',\'' + itemId + '\')">' +
       '<img data-photo-id="' + pid + '" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\'%3E%3Crect width=\'48\' height=\'48\' fill=\'%23F0F4F8\' rx=\'4\'/%3E%3Ctext x=\'24\' y=\'28\' text-anchor=\'middle\' fill=\'%2394A3B8\' font-size=\'16\'%3E%E2%80%A6%3C/text%3E%3C/svg%3E" alt="">' +
       '<button class="photo-thumb-x" onclick="event.stopPropagation();deletePhoto(\'' + zoneId + '\',\'' + itemId + '\',\'' + pid + '\')">&times;</button>' +
     '</div>';
