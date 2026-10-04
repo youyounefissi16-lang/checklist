@@ -804,7 +804,16 @@ function buildReportHtml(logs, meta) {
   );
 }
 
+function needJsPdf() {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    showToast(t("exportError") + ": PDF library not loaded (jspdf.umd.min.js missing from app assets)");
+    return false;
+  }
+  return true;
+}
+
 async function exportReportPdf(logs, meta) {
+  if (!needJsPdf()) return;
   try {
   var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   var W = 210, H = 297, ML = 14, MR = 14, CW = W - ML - MR;
@@ -1480,6 +1489,7 @@ function analyticsViewHtml() {
 }
 
 function exportAnalyticsPdf() {
+  if (!needJsPdf()) return;
   try {
     var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     var W = 210, H = 297, ML = 14, MR = 14, CW = W - ML - MR;
